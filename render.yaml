@@ -1,24 +1,23 @@
 services:
   - type: web
     name: sazug-srms
-    runtime: php
-    buildCommand: |
-      if [ ! -f vendor/autoload.php ]; then
-        composer install --no-dev --optimize-autoloader
-      fi
-    startCommand: apachectl -D FOREGROUND
+    env: docker
+    plan: free
+    healthCheckPath: /index.php
     envVars:
       - key: DB_HOST
-        sync: false
+        value: 'your_mysql_host_here'
       - key: DB_PORT
-        sync: false
+        value: '3306'
       - key: DB_NAME
-        sync: false
+        value: 'sazug_srms'
       - key: DB_USER
-        sync: false
+        value: 'root'
       - key: DB_PASS
-        sync: false
-      - key: APP_KEY
-        generateValue: true
-      - key: APP_URL
-        sync: false
+        value: ''
+      - key: DB_SSL
+        value: 'false'
+      - key: APP_ENV
+        value: 'production'
+      - key: SESSION_SECURE
+        value: 'true'

@@ -1,41 +1,16 @@
 {
-    "name": "sazug/student-record-management-system",
-    "description": "SAZUG Student Record Management System - Comprehensive PHP application for managing student records, academic programmes, and institutional administration",
-    "version": "1.0.0",
+    "name": "sazug/srms",
+    "description": "SAZUG Student Record Management System — Production Ready v2.0",
     "type": "project",
-    "license": "MIT",
     "require": {
-        "php": ">=7.4",
-        "ext-pdo": "*",
-        "ext-pdo_mysql": "*",
-        "ext-json": "*",
-        "ext-mbstring": "*"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^9.0"
-    },
-    "autoload": {
-        "classmap": [
-            "SystemCore.php"
-        ]
-    },
-    "scripts": {
-        "post-install-cmd": [
-            "if [ ! -f .env ] && [ -f .env.example ]; then cp .env.example .env; fi"
-        ]
+        "php": ">=8.3",
+        "endroid/qr-code": "^5.0"
     },
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
         "sort-packages": true
     },
-    "keywords": [
-        "sazug",
-        "student-management",
-        "university",
-        "academic",
-        "record-management",
-        "php",
-        "mysql"
-    ]
+    "minimum-stability": "stable",
+    "prefer-stable": true
 }
