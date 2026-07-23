@@ -1,1275 +1,442 @@
-<?php
-/**
- * SAZUG SRMS — Admin Single Page Application
- * Roles: Super Administrator, Administrator, Registrar, Department Officer
- */
-session_start();
-if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['Super Administrator','Administrator','Registrar','Department Officer'])) {
-    header('Location: index.php'); exit;
-}
-$CSRF  = $_SESSION['csrf_token'] ?? '';
-$ROLE  = $_SESSION['role'];
-$UNAME = $_SESSION['username'];
-
-$isSuperAdmin = ($ROLE === 'Super Administrator');
-$isAdmin      = in_array($ROLE, ['Super Administrator','Administrator']);
-$isRegistrar  = in_array($ROLE, ['Super Administrator','Administrator','Registrar']);
-?>
+<?php session_start(); ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Portal — SAZUG SRMS</title>
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<style>
-:root{--sb-bg:#0a1628;--sb-hover:#1a2e4a;--sb-active:#1e3a5f;--sb-border:rgba(255,255,255,.07);--sb-text:rgba(255,255,255,.65);--sb-active-text:#fff;--accent:#3b82f6;--accent-dark:#1d4ed8;--danger:#ef4444;--success:#22c55e;--warning:#f59e0b;--gold:#f5a623;--body-bg:#f0f4f8;--card-shadow:0 4px 20px rgba(0,0,0,.06);--radius:14px}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;overflow-x:hidden}
-/* ===== LAYOUT ===== */
-.app-wrapper{display:flex;height:100vh;overflow:hidden}
-/* ===== SIDEBAR ===== */
-.sidebar{width:268px;background:var(--sb-bg);display:flex;flex-direction:column;flex-shrink:0;transition:width .3s cubic-bezier(.4,0,.2,1);position:relative;z-index:100;overflow:hidden}
-.sidebar.collapsed{width:72px}
-.sidebar-logo{padding:20px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--sb-border);flex-shrink:0}
-.sidebar-logo-icon{width:38px;height:38px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;flex-shrink:0}
-.sidebar-logo-text{font-size:1.05rem;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;opacity:1;transition:opacity .2s}
-.sidebar.collapsed .sidebar-logo-text{opacity:0;width:0}
-.sidebar-user{padding:14px 16px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--sb-border);flex-shrink:0}
-.sidebar-avatar{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-dark));display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:.95rem;flex-shrink:0}
-.sidebar-user-info{overflow:hidden;transition:opacity .2s}
-.sidebar.collapsed .sidebar-user-info{opacity:0;width:0}
-.sidebar-user-name{font-size:.82rem;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sidebar-user-role{font-size:.72rem;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sidebar-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 0}
-.sidebar-scroll::-webkit-scrollbar{width:4px}.sidebar-scroll::-webkit-scrollbar-track{background:transparent}.sidebar-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
-.sidebar-section{padding:14px 14px 4px;font-size:.63rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.28);white-space:nowrap;overflow:hidden;transition:opacity .2s}
-.sidebar.collapsed .sidebar-section{opacity:0}
-.nav-item-btn{display:flex;align-items:center;gap:13px;padding:10px 14px;color:var(--sb-text);text-decoration:none;border-radius:10px;margin:2px 8px;cursor:pointer;transition:all .2s;white-space:nowrap;overflow:hidden;border:none;background:transparent;width:calc(100% - 16px);font-family:'Inter',sans-serif}
-.nav-item-btn:hover{background:var(--sb-hover);color:rgba(255,255,255,.9)}
-.nav-item-btn.active{background:var(--sb-active);color:var(--sb-active-text);box-shadow:inset 3px 0 0 var(--accent)}
-.nav-item-btn .nav-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;transition:transform .2s}
-.nav-item-btn:hover .nav-icon{transform:scale(1.1)}
-.nav-item-btn .nav-text{font-size:.845rem;font-weight:500;transition:opacity .2s;overflow:hidden}
-.sidebar.collapsed .nav-item-btn .nav-text{opacity:0;width:0}
-.nav-badge{background:var(--accent);color:#fff;font-size:.62rem;padding:2px 7px;border-radius:20px;font-weight:700;flex-shrink:0;margin-left:auto;transition:opacity .2s}
-.sidebar.collapsed .nav-badge{opacity:0}
-.sidebar-bottom{padding:12px 8px;border-top:1px solid var(--sb-border);flex-shrink:0}
-.toggle-btn{width:100%;padding:9px;background:rgba(255,255,255,.05);border:none;border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:8px}
-.toggle-btn:hover{background:rgba(255,255,255,.1);color:#fff}
-/* ===== MAIN ===== */
-.main-area{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.topbar{background:#fff;padding:0 28px;height:64px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e8edf3;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.04)}
-.topbar-left{display:flex;align-items:center;gap:16px}
-.page-title{font-size:1.05rem;font-weight:700;color:#1a202c}
-.topbar-right{display:flex;align-items:center;gap:12px}
-.topbar-btn{width:36px;height:36px;border-radius:10px;border:1px solid #e2e8f0;background:#f8fafc;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;color:#64748b;font-size:.85rem}
-.topbar-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
-.topbar-role-badge{background:#eef2ff;color:#3730a3;padding:5px 12px;border-radius:20px;font-size:.75rem;font-weight:700}
-.content-area{flex:1;overflow-y:auto;padding:26px;background:var(--body-bg)}
-.content-area::-webkit-scrollbar{width:6px}.content-area::-webkit-scrollbar-track{background:transparent}.content-area::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:6px}
-/* ===== VIEWS ===== */
-.spa-view{display:none;animation:fadeIn .3s ease}
-.spa-view.active{display:block}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
-/* ===== CARDS ===== */
-.stat-card{background:#fff;border-radius:var(--radius);padding:22px 24px;box-shadow:var(--card-shadow);border:1px solid #e8edf3;display:flex;align-items:center;gap:18px;transition:all .3s;overflow:hidden;position:relative}
-.stat-card::before{content:'';position:absolute;top:0;right:0;bottom:0;width:4px}
-.stat-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,.1)}
-.stat-icon{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0}
-.stat-num{font-size:2rem;font-weight:800;line-height:1}
-.stat-label{font-size:.8rem;color:#94a3b8;font-weight:500;margin-top:4px}
-.stat-trend{font-size:.72rem;display:flex;align-items:center;gap:4px;margin-top:6px}
-/* ===== TABLE CARD ===== */
-.table-card{background:#fff;border-radius:var(--radius);box-shadow:var(--card-shadow);border:1px solid #e8edf3;overflow:hidden}
-.table-card-header{padding:18px 24px;border-bottom:1px solid #f0f4f8;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.table-card-title{font-size:.95rem;font-weight:700;color:#1a202c}
-.table-card-body{padding:0}
-/* ===== CHART CARD ===== */
-.chart-card{background:#fff;border-radius:var(--radius);box-shadow:var(--card-shadow);border:1px solid #e8edf3;padding:22px}
-.chart-title{font-size:.9rem;font-weight:700;color:#1a202c;margin-bottom:4px}
-.chart-sub{font-size:.76rem;color:#94a3b8}
-/* ===== STATUS BADGES ===== */
-.badge-active{background:#dcfce7;color:#15803d;padding:4px 11px;border-radius:20px;font-size:.73rem;font-weight:700}
-.badge-suspended{background:#fef9c3;color:#a16207;padding:4px 11px;border-radius:20px;font-size:.73rem;font-weight:700}
-.badge-graduated{background:#dbeafe;color:#1d4ed8;padding:4px 11px;border-radius:20px;font-size:.73rem;font-weight:700}
-.badge-withdrawn{background:#fee2e2;color:#b91c1c;padding:4px 11px;border-radius:20px;font-size:.73rem;font-weight:700}
-/* ===== FORMS ===== */
-.form-ctrl{border:2px solid #e2e8f0;border-radius:10px;padding:10px 14px;font-size:.88rem;transition:border-color .2s;font-family:'Inter',sans-serif}
-.form-ctrl:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.1)}
-.form-label-sm{font-size:.8rem;font-weight:600;color:#374151;margin-bottom:5px}
-/* ===== MODALS ===== */
-.modal-content{border:none;border-radius:20px;box-shadow:0 25px 80px rgba(0,0,0,.2)}
-.modal-header{border-bottom:1px solid #f0f4f8;padding:20px 24px}
-.modal-footer{border-top:1px solid #f0f4f8;padding:16px 24px}
-/* ===== QUICK ACTIONS ===== */
-.quick-action{background:#fff;border:1px solid #e8edf3;border-radius:12px;padding:18px 16px;text-align:center;cursor:pointer;transition:all .25s;text-decoration:none;display:block}
-.quick-action:hover{background:var(--accent);border-color:var(--accent);transform:translateY(-4px);box-shadow:0 12px 30px rgba(59,130,246,.25)}
-.quick-action:hover .qa-icon,.quick-action:hover .qa-label{color:#fff!important}
-.qa-icon{font-size:1.6rem;margin-bottom:10px;display:block}
-.qa-label{font-size:.8rem;font-weight:600;color:#374151}
-/* ===== ACTIVITY FEED ===== */
-.activity-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #f8fafc}
-.activity-item:last-child{border-bottom:none}
-.activity-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
-/* ===== SECTION HEADER ===== */
-.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:12px}
-.section-header-left h3{font-size:1.1rem;font-weight:800;color:#1a202c;margin:0}
-.section-header-left p{font-size:.82rem;color:#94a3b8;margin:4px 0 0}
-/* ===== RESPONSIVE ===== */
-@media(max-width:900px){.sidebar{position:fixed;top:0;left:0;bottom:0;z-index:1000;transform:translateX(-100%);transition:transform .3s}.sidebar.mobile-open{transform:translateX(0)}.sidebar.collapsed{width:268px;transform:translateX(-100%)}.sidebar.collapsed.mobile-open{transform:translateX(0)}.main-area{width:100%}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SAZUG SRMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css" rel="stylesheet">
+    <style>
+        :root{--sidebar-w:270px;--primary:#1a365d;--primary-light:#2a4a7f;--primary-dark:#0f2440;--gold:#c9973f;--gold-light:#daa84e;--sidebar-bg:linear-gradient(180deg,#0d1b2a 0%,#1a365d 100%)}
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',sans-serif;background:#f0f2f5;overflow-x:hidden}
+        [data-bs-theme="dark"] body{background:#0a1628;color:#e0e0e0}
+        [data-bs-theme="dark"] .card{background:#152238;border-color:rgba(255,255,255,.08)}
+        [data-bs-theme="dark"] .table{color:#e0e0e0}
+        [data-bs-theme="dark"] .table td,[data-bs-theme="dark"] .table th{background:#152238;border-color:rgba(255,255,255,.06)}
+        [data-bs-theme="dark"] .dataTables_wrapper .dataTables_filter input,[data-bs-theme="dark"] .dataTables_wrapper .dataTables_length select,[data-bs-theme="dark"] .dt-buttons .btn{background:#1a2a3d;border-color:rgba(255,255,255,.15);color:#e0e0e0}
+        [data-bs-theme="dark"] .modal-content{background:#152238}
+        [data-bs-theme="dark"] .form-control,[data-bs-theme="dark"] .form-select{background:#1a2a3d;color:#e0e0e0;border-color:rgba(255,255,255,.15)}
+
+        /* Sidebar */
+        .sidebar{position:fixed;left:0;top:0;bottom:0;width:var(--sidebar-w);background:var(--sidebar-bg);z-index:1040;transition:transform .3s;overflow-y:auto;overflow-x:hidden}
+        .sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:4px}
+        .sidebar-brand{padding:1.5rem;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(255,255,255,.08)}
+        .sidebar-brand i{font-size:1.8rem;color:var(--gold)}.sidebar-brand span{font-size:1.15rem;font-weight:700;color:var(--white);letter-spacing:.5px}
+        .sidebar-section{padding:1rem 1.2rem .3rem;font-size:.7rem;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,.4);font-weight:600}
+        .sidebar-nav{padding:0 8px}
+        .sidebar-link{display:flex;align-items:center;gap:12px;padding:.7rem 1rem;color:rgba(255,255,255,.7);text-decoration:none;border-radius:10px;font-size:.9rem;font-weight:500;transition:all .2s;margin-bottom:2px;cursor:pointer}
+        .sidebar-link:hover{color:var(--white);background:rgba(255,255,255,.08)}
+        .sidebar-link.active{color:var(--gold);background:rgba(201,151,63,.12);font-weight:600}
+        .sidebar-link i{font-size:1.15rem;width:22px;text-align:center}
+        .sidebar-user{padding:1.2rem;border-top:1px solid rgba(255,255,255,.08);margin-top:auto;display:flex;align-items:center;gap:12px}
+        .sidebar-avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));display:flex;align-items:center;justify-content:center;color:var(--white);font-weight:700;font-size:.9rem}
+        .sidebar-user-info{flex:1}.sidebar-user-info .name{color:var(--white);font-size:.85rem;font-weight:600}.sidebar-user-info .role{color:rgba(255,255,255,.5);font-size:.75rem;text-transform:capitalize}
+
+        /* Main */
+        .main-content{margin-left:var(--sidebar-w);min-height:100vh;transition:margin .3s}
+        .topbar{background:var(--white);padding:.8rem 1.5rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e0e0e0;position:sticky;top:0;z-index:1030}
+        [data-bs-theme="dark"] .topbar{background:#0d1b2a;border-color:rgba(255,255,255,.08)}
+        .breadcrumb-custom{margin:0;font-size:.85rem}.breadcrumb-custom .breadcrumb-item a{color:var(--primary);text-decoration:none}
+        .topbar-actions{display:flex;align-items:center;gap:10px}
+        .theme-toggle-sm{width:36px;height:36px;border-radius:50%;border:2px solid #e0e0e0;background:transparent;color:var(--primary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s;font-size:1rem}
+        .theme-toggle-sm:hover{background:rgba(201,151,63,.1);border-color:var(--gold);color:var(--gold)}
+        .page-content{padding:1.5rem}
+
+        /* Cards */
+        .stat-card{border:none;border-radius:16px;padding:1.3rem;transition:transform .2s;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+        .stat-card:hover{transform:translateY(-3px)}.stat-card .icon-box{width:50px;height:50px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+        .stat-card .value{font-size:1.7rem;font-weight:700;line-height:1.2;margin-top:.5rem}
+        .stat-card .label{font-size:.82rem;color:#666;font-weight:500}
+        [data-bs-theme="dark"] .stat-card .label{color:#aaa}
+        .stat-card-blue{background:linear-gradient(135deg,#1a365d,#2a4a7f);color:#fff}.stat-card-blue .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-green{background:linear-gradient(135deg,#0d6833,#16a34a);color:#fff}.stat-card-green .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-gold{background:linear-gradient(135deg,#a87d2e,#c9973f);color:#fff}.stat-card-gold .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-red{background:linear-gradient(135deg,#991b1b,#dc2626);color:#fff}.stat-card-red .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-purple{background:linear-gradient(135deg,#5b21b6,#7c3aed);color:#fff}.stat-card-purple .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-teal{background:linear-gradient(135deg,#0d6e6e,#14b8a6);color:#fff}.stat-card-teal .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-orange{background:linear-gradient(135deg,#c2410c,#f97316);color:#fff}.stat-card-orange .icon-box{background:rgba(255,255,255,.2)}
+        .stat-card-cyan{background:linear-gradient(135deg,#0e7490,#06b6d4);color:#fff}.stat-card-cyan .icon-box{background:rgba(255,255,255,.2)}
+
+        /* Charts */
+        .chart-card{border:none;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+        .chart-card .card-header{background:transparent;border-bottom:1px solid #eee;padding:1rem 1.2rem;font-weight:600;font-size:.95rem}
+        [data-bs-theme="dark"] .chart-card .card-header{border-color:rgba(255,255,255,.08)}
+
+        /* Table */
+        .table-card{border:none;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden}
+        .table-card .card-header{background:transparent;border-bottom:1px solid #eee;padding:1rem 1.2rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+        [data-bs-theme="dark"] .table-card .card-header{border-color:rgba(255,255,255,.08)}
+        .badge-status{padding:.35em .7em;font-size:.75rem;font-weight:600}
+        .btn-action{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;border-radius:8px;font-size:.8rem;transition:all .2s}
+
+        /* Forms */
+        .modal-header{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;border:none}
+        .modal-header .btn-close{filter:brightness(0) invert(1)}
+        .form-label{font-weight:500;font-size:.88rem;margin-bottom:.3rem}
+
+        /* Status badges */
+        .status-active{background:#dcfce7;color:#166534}.status-suspended{background:#fef3c7;color:#92400e}
+        .status-withdrawn{background:#fee2e2;color:#991b1b}.status-graduated{background:#dbeafe;color:#1e40af}
+        .status-expelled{background:#fce7f3;color:#9d174d}.status-upcoming{background:#f3f4f6;color:#374151}
+        .status-completed{background:#dcfce7;color:#166534}
+
+        /* Responsive */
+        .sidebar-toggle{display:none;background:none;border:none;color:var(--primary);font-size:1.3rem;cursor:pointer}
+        @media(max-width:992px){.sidebar{transform:translateX(-100%)}.sidebar.show{transform:translateX(0)}.main-content{margin-left:0}.sidebar-toggle{display:block}}
+        .dataTables_wrapper{overflow-x:auto}
+    </style>
 </head>
 <body>
-
-<div class="app-wrapper">
-<!-- ===================== SIDEBAR ===================== -->
-<nav class="sidebar" id="sidebar">
-    <div class="sidebar-logo">
-        <div class="sidebar-logo-icon"><i class="fas fa-university"></i></div>
-        <div class="sidebar-logo-text">SAZUG SRMS</div>
-    </div>
-    <div class="sidebar-user">
-        <div class="sidebar-avatar"><?= strtoupper(substr($UNAME,0,2)) ?></div>
-        <div class="sidebar-user-info">
-            <div class="sidebar-user-name"><?= htmlspecialchars($UNAME) ?></div>
-            <div class="sidebar-user-role"><?= htmlspecialchars($ROLE) ?></div>
-        </div>
-    </div>
-    <div class="sidebar-scroll">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand"><i class="bi bi-mortarboard-fill"></i><span>SAZUG SRMS</span></div>
         <div class="sidebar-section">Main</div>
-        <button class="nav-item-btn active" data-view="dashboard" onclick="showView('dashboard',this)">
-            <span class="nav-icon"><i class="fas fa-chart-pie"></i></span>
-            <span class="nav-text">Dashboard</span>
-        </button>
-        <div class="sidebar-section">Academic</div>
-        <button class="nav-item-btn" data-view="students" onclick="showView('students',this)">
-            <span class="nav-icon"><i class="fas fa-user-graduate"></i></span>
-            <span class="nav-text">Students</span>
-        </button>
-        <?php if($isRegistrar): ?>
-        <button class="nav-item-btn" data-view="faculties" onclick="showView('faculties',this)">
-            <span class="nav-icon"><i class="fas fa-building-columns"></i></span>
-            <span class="nav-text">Faculties</span>
-        </button>
-        <button class="nav-item-btn" data-view="departments" onclick="showView('departments',this)">
-            <span class="nav-icon"><i class="fas fa-sitemap"></i></span>
-            <span class="nav-text">Departments</span>
-        </button>
-        <button class="nav-item-btn" data-view="programmes" onclick="showView('programmes',this)">
-            <span class="nav-icon"><i class="fas fa-graduation-cap"></i></span>
-            <span class="nav-text">Programmes</span>
-        </button>
-        <button class="nav-item-btn" data-view="courses" onclick="showView('courses',this)">
-            <span class="nav-icon"><i class="fas fa-book-open"></i></span>
-            <span class="nav-text">Courses</span>
-        </button>
-        <button class="nav-item-btn" data-view="sessions" onclick="showView('sessions',this)">
-            <span class="nav-icon"><i class="fas fa-calendar-alt"></i></span>
-            <span class="nav-text">Sessions</span>
-        </button>
-        <?php endif; ?>
-        <?php if($isAdmin): ?>
-        <div class="sidebar-section">Administration</div>
-        <button class="nav-item-btn" data-view="staff" onclick="showView('staff',this)">
-            <span class="nav-icon"><i class="fas fa-chalkboard-teacher"></i></span>
-            <span class="nav-text">Staff Directory</span>
-        </button>
-        <button class="nav-item-btn" data-view="users" onclick="showView('users',this)">
-            <span class="nav-icon"><i class="fas fa-users-cog"></i></span>
-            <span class="nav-text">User Accounts</span>
-        </button>
-        <?php endif; ?>
-        <?php if($isSuperAdmin): ?>
-        <button class="nav-item-btn" data-view="audit" onclick="showView('audit',this)">
-            <span class="nav-icon"><i class="fas fa-history"></i></span>
-            <span class="nav-text">Audit Logs</span>
-        </button>
-        <div class="sidebar-section">System</div>
-        <button class="nav-item-btn" data-view="settings" onclick="showView('settings',this)">
-            <span class="nav-icon"><i class="fas fa-cog"></i></span>
-            <span class="nav-text">Settings</span>
-        </button>
-        <?php endif; ?>
-    </div>
-    <div class="sidebar-bottom">
-        <button class="nav-item-btn" onclick="doLogout()" style="color:rgba(239,68,68,.8)">
-            <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span>
-            <span class="nav-text">Logout</span>
-        </button>
-        <button class="toggle-btn mt-2" id="sidebarToggle">
-            <i class="fas fa-bars" id="toggleIcon"></i>
-            <span class="nav-text" style="font-size:.8rem">Collapse</span>
-        </button>
-    </div>
-</nav>
+        <nav class="sidebar-nav">
+            <div class="sidebar-link active" data-page="dashboard"><i class="bi bi-grid-1x2-fill"></i>Dashboard</div>
+            <div class="sidebar-section">Academic</div>
+            <div class="sidebar-link" data-page="students"><i class="bi bi-people-fill"></i>Students</div>
+            <div class="sidebar-link" data-page="faculties"><i class="bi bi-building"></i>Faculties</div>
+            <div class="sidebar-link" data-page="departments"><i class="bi bi-diagram-3"></i>Departments</div>
+            <div class="sidebar-link" data-page="programmes"><i class="bi bi-journal-bookmark-fill"></i>Programmes</div>
+            <div class="sidebar-link" data-page="courses"><i class="bi bi-book"></i>Courses</div>
+            <div class="sidebar-link" data-page="sessions"><i class="bi bi-calendar-event"></i>Sessions</div>
+            <div class="sidebar-section">Management</div>
+            <div class="sidebar-link" data-page="staff"><i class="bi bi-person-badge"></i>Staff</div>
+            <div class="sidebar-link" data-page="audit"><i class="bi bi-clock-history"></i>Audit Log</div>
+            <div class="sidebar-section">System</div>
+            <div class="sidebar-link" data-page="settings"><i class="bi bi-gear-fill"></i>Settings</div>
+        </nav>
+        <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-avatar" id="avatarInitial">A</div>
+            <div class="sidebar-user-info">
+                <div class="name" id="userName">Admin</div>
+                <div class="role" id="userRole">superadmin</div>
+            </div>
+            <button class="btn btn-sm p-0 text-white-50" onclick="logout()" title="Logout"><i class="bi bi-box-arrow-right"></i></button>
+        </div>
+    </aside>
 
-<!-- ===================== MAIN ===================== -->
-<div class="main-area">
-    <div class="topbar">
-        <div class="topbar-left">
-            <button class="topbar-btn d-md-none" id="mobileSidebarBtn"><i class="fas fa-bars"></i></button>
-            <div>
-                <div class="page-title" id="pageTitle">Dashboard</div>
+    <!-- Main Content -->
+    <div class="main-content" id="mainContent">
+        <div class="topbar">
+            <div class="d-flex align-items-center gap-3">
+                <button class="sidebar-toggle" onclick="document.getElementById('sidebar').classList.toggle('show')"><i class="bi bi-list"></i></button>
+                <nav aria-label="breadcrumb"><ol class="breadcrumb breadcrumb-custom" id="breadcrumb"><li class="breadcrumb-item"><a href="#">Admin</a></li><li class="breadcrumb-item active" id="breadcrumbPage">Dashboard</li></ol></nav>
+            </div>
+            <div class="topbar-actions">
+                <button class="theme-toggle-sm" onclick="toggleTheme()" title="Toggle Theme"><i class="bi bi-moon-stars-fill" id="themeIcon"></i></button>
+                <button class="btn btn-outline-danger btn-sm" onclick="logout()"><i class="bi bi-box-arrow-right me-1"></i>Logout</button>
             </div>
         </div>
-        <div class="topbar-right">
-            <span class="topbar-role-badge"><?= htmlspecialchars($ROLE) ?></span>
-            <div class="topbar-btn" title="Refresh" onclick="refreshCurrentView()"><i class="fas fa-sync-alt"></i></div>
-            <a href="index.php" class="topbar-btn text-decoration-none" title="Home"><i class="fas fa-home"></i></a>
+        <div class="page-content" id="pageContent">
+            <!-- Pages injected here by JS -->
         </div>
     </div>
 
-    <div class="content-area">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+    <script>
+    const API='api.php';let TOKEN='',USER=null,currentPage='dashboard';
+    (function(){TOKEN=localStorage.getItem('sazug_token')||'';const u=localStorage.getItem('sazug_user');if(u)USER=JSON.parse(u);if(!TOKEN||!USER){window.location.href='index.php';return}
+    if(USER){document.getElementById('userName').textContent=USER.full_name||'Admin';document.getElementById('userRole').textContent=USER.role||'superadmin';document.getElementById('avatarInitial').textContent=(USER.full_name||'A').charAt(0).toUpperCase()}
+    const t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-bs-theme',t);document.getElementById('themeIcon').className=t==='dark'?'bi bi-sun-fill':'bi bi-moon-stars-fill'}
+    loadPage('dashboard')})();
 
-        <!-- ========== DASHBOARD ========== -->
-        <div class="spa-view active" id="view-dashboard">
-            <div class="section-header">
-                <div class="section-header-left">
-                    <h3>Welcome back, <?= htmlspecialchars($UNAME) ?></h3>
-                    <p id="dashDate"></p>
-                </div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadDashboard()"><i class="fas fa-sync me-1"></i>Refresh</button>
-                </div>
-            </div>
-            <!-- Stat Cards -->
-            <div class="row g-3 mb-4" id="statCards">
-                <?php $cards=[
-                    ['key'=>'total_students','label'=>'Total Students','icon'=>'fa-users','c1'=>'#dbeafe','c2'=>'#3b82f6','bc'=>'#3b82f6'],
-                    ['key'=>'active_students','label'=>'Active Students','icon'=>'fa-user-check','c1'=>'#dcfce7','c2'=>'#22c55e','bc'=>'#22c55e'],
-                    ['key'=>'graduated_students','label'=>'Graduated','icon'=>'fa-graduation-cap','c1'=>'#fef9c3','c2'=>'#f59e0b','bc'=>'#f59e0b'],
-                    ['key'=>'total_staff','label'=>'Staff Members','icon'=>'fa-chalkboard-teacher','c1'=>'#f3e8ff','c2'=>'#a855f7','bc'=>'#a855f7'],
-                    ['key'=>'total_departments','label'=>'Departments','icon'=>'fa-sitemap','c1'=>'#ffedd5','c2'=>'#f97316','bc'=>'#f97316'],
-                    ['key'=>'total_certificates','label'=>'Certificates Issued','icon'=>'fa-certificate','c1'=>'#fce7f3','c2'=>'#ec4899','bc'=>'#ec4899'],
-                ]; foreach($cards as $i=>$c): ?>
-                <div class="col-6 col-md-4 col-xl-2">
-                    <div class="stat-card" style="--bc:<?= $c['bc'] ?>">
-                        <style>.stat-card:nth-child(<?= $i+1 ?>)::before{background:var(--bc)}</style>
-                        <div class="stat-icon" style="background:<?= $c['c1'] ?>;color:<?= $c['c2'] ?>"><i class="fas <?= $c['icon'] ?>"></i></div>
-                        <div>
-                            <div class="stat-num text-primary" id="stat-<?= $c['key'] ?>">—</div>
-                            <div class="stat-label"><?= $c['label'] ?></div>
-                        </div>
-                    </div>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <!-- Active Session Banner -->
-            <div class="alert d-flex align-items-center gap-3 mb-4 border-0 rounded-3" style="background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;padding:14px 20px">
-                <i class="fas fa-calendar-check fa-lg"></i>
-                <div><strong>Active Session:</strong> <span id="activeSessionBadge">Loading...</span></div>
-            </div>
-            <!-- Charts + Activity -->
-            <div class="row g-4 mb-4">
-                <div class="col-lg-4">
-                    <div class="chart-card h-100">
-                        <div class="chart-title">Enrollment by Status</div>
-                        <div class="chart-sub mb-3">Current student distribution</div>
-                        <canvas id="statusChart" height="200"></canvas>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="chart-card h-100">
-                        <div class="chart-title">Students by Level</div>
-                        <div class="chart-sub mb-3">Distribution across levels</div>
-                        <canvas id="levelChart" height="200"></canvas>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="chart-card h-100">
-                        <div class="chart-title">Recent Activity</div>
-                        <div class="chart-sub mb-3">Latest system actions</div>
-                        <div id="activityFeed" style="max-height:250px;overflow-y:auto"></div>
-                    </div>
-                </div>
-            </div>
-            <!-- Dept Chart + Quick Actions -->
-            <div class="row g-4">
-                <div class="col-lg-8">
-                    <div class="chart-card">
-                        <div class="chart-title">Students by Department</div>
-                        <div class="chart-sub mb-3">Enrollment distribution across departments</div>
-                        <canvas id="deptChart" height="120"></canvas>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="chart-card h-100">
-                        <div class="chart-title mb-3">Quick Actions</div>
-                        <div class="row g-2">
-                            <?php $qa=[
-                                ['fa-user-plus','Add Student','students','showAddStudent'],
-                                ['fa-id-card','Issue Cert','students',''],
-                                ['fa-building-columns','Add Faculty','faculties','showAddFaculty'],
-                                ['fa-calendar-plus','New Session','sessions','showAddSession'],
-                            ]; foreach($qa as [$icon,$label,$view,$fn]): ?>
-                            <div class="col-6">
-                                <a class="quick-action" href="#" onclick="<?= $view ? "showView('$view',document.querySelector('[data-view=\'$view\']'))" : '' ?><?= $fn ? ";$fn()" : '' ?>;return false">
-                                    <span class="qa-icon" style="color:var(--accent)"><i class="fas <?= $icon ?>"></i></span>
-                                    <span class="qa-label"><?= $label ?></span>
-                                </a>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    function toggleTheme(){const t=document.documentElement.getAttribute('data-bs-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-bs-theme',t);localStorage.setItem('theme',t);document.getElementById('themeIcon').className=t==='dark'?'bi bi-sun-fill':'bi bi-moon-stars-fill'}
+    function logout(){Swal.fire({title:'Logout?',icon:'question',showCancelButton:true,confirmButtonText:'Yes, logout',confirmButtonColor:'#dc3545'}).then(r=>{if(r.isConfirmed){localStorage.removeItem('sazug_token');localStorage.removeItem('sazug_user');window.location.href='index.php'}})}
 
-        <!-- ========== STUDENTS ========== -->
-        <div class="spa-view" id="view-students">
-            <div class="section-header">
-                <div class="section-header-left">
-                    <h3>Student Registry</h3>
-                    <p>Manage all student records, statuses, and documents</p>
-                </div>
-                <?php if($isRegistrar): ?>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" id="addStudentBtn" onclick="showAddStudent()">
-                    <i class="fas fa-plus me-1"></i> New Student
-                </button>
-                <?php endif; ?>
-            </div>
-            <!-- Filters -->
-            <div class="table-card mb-4">
-                <div class="table-card-header">
-                    <span class="table-card-title"><i class="fas fa-filter me-2 text-muted"></i>Filter Records</span>
-                </div>
-                <div class="p-3 pb-2">
-                    <div class="row g-2">
-                        <div class="col-md-3"><select class="form-ctrl w-100" id="filterDept" onchange="reloadStudentsTable()"><option value="">All Departments</option></select></div>
-                        <div class="col-md-2"><select class="form-ctrl w-100" id="filterStatus" onchange="reloadStudentsTable()"><option value="">All Status</option><option>Active</option><option>Suspended</option><option>Graduated</option><option>Withdrawn</option></select></div>
-                        <div class="col-md-2"><select class="form-ctrl w-100" id="filterLevel" onchange="reloadStudentsTable()"><option value="">All Levels</option><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option></select></div>
-                        <div class="col-md-3"><input type="text" class="form-ctrl w-100" id="filterSearch" placeholder="Search name, admission no..." oninput="debounce(reloadStudentsTable,400)()"></div>
-                        <div class="col-md-2"><button class="btn btn-sm btn-outline-secondary w-100 rounded-pill" onclick="clearFilters()"><i class="fas fa-times me-1"></i>Clear</button></div>
-                    </div>
-                </div>
-            </div>
-            <div class="table-card">
-                <div class="table-card-body">
-                    <div class="table-responsive">
-                        <table id="studentsTable" class="table table-hover mb-0" style="width:100%">
-                            <thead style="background:#f8fafc"><tr>
-                                <th class="ps-4">Admission No.</th><th>Name</th><th>Department</th>
-                                <th>Programme</th><th>Level</th><th>Status</th><th class="text-end pe-4">Actions</th>
-                            </tr></thead>
-                            <tbody id="studentsBody"><tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr></tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
+    async function apiCall(action,data={},method='POST'){const opts={method,'Content-Type':'application/json'};if(TOKEN)opts.headers={'Content-Type':'application/json','Authorization':'Bearer '+TOKEN};if(method==='GET'){const params=new URLSearchParams({action,...data});const r=await fetch(API+'?'+params,{headers:{Authorization:'Bearer '+TOKEN}});return r.json()}
+    opts.body=JSON.stringify({action,...data});const r=await fetch(API,opts);return r.json()}
 
-        <!-- ========== FACULTIES ========== -->
-        <div class="spa-view" id="view-faculties">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Faculties</h3><p>Manage institutional faculties</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddFaculty()"><i class="fas fa-plus me-1"></i> New Faculty</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="facultiesTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Code</th><th>Name</th><th>HOD</th><th>Departments</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="facultiesBody"></tbody>
-                </table>
-            </div></div>
-        </div>
+    // Navigation
+    document.querySelectorAll('.sidebar-link[data-page]').forEach(link=>{link.addEventListener('click',function(){document.querySelectorAll('.sidebar-link').forEach(l=>l.classList.remove('active'));this.classList.add('active');loadPage(this.dataset.page);if(window.innerWidth<992)document.getElementById('sidebar').classList.remove('show')})});
 
-        <!-- ========== DEPARTMENTS ========== -->
-        <div class="spa-view" id="view-departments">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Departments</h3><p>Manage departments within faculties</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddDepartment()"><i class="fas fa-plus me-1"></i> New Department</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="depsTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Code</th><th>Name</th><th>Faculty</th><th>Students</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="depsBody"></tbody>
-                </table>
-            </div></div>
-        </div>
+    async function loadPage(page){currentPage=page;document.getElementById('breadcrumbPage').textContent=page.charAt(0).toUpperCase()+page.slice(1);
+    const pages={dashboard:loadDashboard,students:loadStudents,faculties:loadFaculties,departments:loadDepartments,programmes:loadProgrammes,courses:loadCourses,staff:loadStaff,sessions:loadSessions,audit:loadAudit,settings:loadSettings};
+    if(pages[page])pages[page]();}
 
-        <!-- ========== PROGRAMMES ========== -->
-        <div class="spa-view" id="view-programmes">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Programmes</h3><p>Academic programmes offered</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddProgramme()"><i class="fas fa-plus me-1"></i> New Programme</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="progsTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Programme</th><th>Type</th><th>Department</th><th>Faculty</th><th>Duration</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="progsBody"></tbody>
-                </table>
-            </div></div>
-        </div>
+    // ============ DASHBOARD ============
+    async function loadDashboard(){
+        document.getElementById('pageContent').innerHTML='<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Loading dashboard...</p></div>';
+        const d=await apiCall('dashboard',{},'GET');if(!d.success)return document.getElementById('pageContent').innerHTML='<p class="text-danger">Failed to load dashboard</p>';
+        const data=d.data;let h=`<div class="row g-3 mb-4">
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-blue"><div class="d-flex justify-content-between"><div><div class="label">Total Students</div><div class="value">${data.total_students}</div></div><div class="icon-box"><i class="bi bi-people-fill"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-green"><div class="d-flex justify-content-between"><div><div class="label">Active Students</div><div class="value">${data.active_students}</div></div><div class="icon-box"><i class="bi bi-person-check-fill"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-gold"><div class="d-flex justify-content-between"><div><div class="label">Graduated</div><div class="value">${data.graduated_students}</div></div><div class="icon-box"><i class="bi bi-award-fill"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-red"><div class="d-flex justify-content-between"><div><div class="label">Suspended</div><div class="value">${data.suspended_students}</div></div><div class="icon-box"><i class="bi bi-pause-circle-fill"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-purple"><div class="d-flex justify-content-between"><div><div class="label">Faculties</div><div class="value">${data.total_faculties}</div></div><div class="icon-box"><i class="bi bi-building"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-teal"><div class="d-flex justify-content-between"><div><div class="label">Departments</div><div class="value">${data.total_departments}</div></div><div class="icon-box"><i class="bi bi-diagram-3"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-orange"><div class="d-flex justify-content-between"><div><div class="label">Programmes</div><div class="value">${data.total_programmes}</div></div><div class="icon-box"><i class="bi bi-journal-bookmark-fill"></i></div></div></div></div>
+        <div class="col-xl-3 col-sm-6"><div class="stat-card stat-card-cyan"><div class="d-flex justify-content-between"><div><div class="label">Total Staff</div><div class="value">${data.total_staff}</div></div><div class="icon-box"><i class="bi bi-person-badge"></i></div></div></div></div>
+        </div>`;
+        h+=`<div class="row g-3 mb-4"><div class="col-lg-4"><div class="chart-card"><div class="card-header"><i class="bi bi-pie-fill me-2"></i>Gender Distribution</div><div class="card-body p-3"><canvas id="chartGender" height="250"></canvas></div></div></div>`;
+        h+=`<div class="col-lg-4"><div class="chart-card"><div class="card-header"><i class="bi bi-bar-chart-fill me-2"></i>Faculty Distribution</div><div class="card-body p-3"><canvas id="chartFaculty" height="250"></canvas></div></div></div>`;
+        h+=`<div class="col-lg-4"><div class="chart-card"><div class="card-header"><i class="bi bi-graph-up me-2"></i>Enrollment Trend</div><div class="card-body p-3"><canvas id="chartEnroll" height="250"></canvas></div></div></div></div>`;
+        h+=`<div class="table-card"><div class="card-header"><span><i class="bi bi-clock-history me-2"></i>Recent Activities</span></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Date</th><th>User</th><th>Action</th><th>Details</th><th>IP</th></tr></thead><tbody>`;
+        (data.recent_activities||[]).forEach(a=>{h+=`<tr><td>${a.created_at||''}</td><td>${a.user_name||'-'}</td><td><span class="badge bg-primary bg-opacity-10 text-primary">${a.action||''}</span></td><td>${(a.details||'').substring(0,60)}</td><td><small>${a.ip_address||''}</small></td></tr>`});
+        h+=`</tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        // Charts
+        setTimeout(()=>{try{
+        new Chart(document.getElementById('chartGender'),{type:'doughnut',data:{labels:['Male','Female'],datasets:[{data:[data.gender_distribution?.male||0,data.gender_distribution?.female||0],backgroundColor:['#1a365d','#c9973f'],borderWidth:0}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});
+        const facLabels=(data.faculty_distribution||[]).map(f=>f.name);const facData=(data.faculty_distribution||[]).map(f=>parseInt(f.cnt));
+        new Chart(document.getElementById('chartFaculty'),{type:'bar',data:{labels:facLabels,datasets:[{label:'Students',data:facData,backgroundColor:'rgba(201,151,63,.7)',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+        const mLabels=(data.enrollment_trend||[]).map(m=>m.month);const mData=(data.enrollment_trend||[]).map(m=>parseInt(m.cnt));
+        new Chart(document.getElementById('chartEnroll'),{type:'line',data:{labels:mLabels,datasets:[{label:'Enrollments',data:mData,borderColor:'#c9973f',backgroundColor:'rgba(201,151,63,.1)',fill:true,tension:.4}]},options:{responsive:true,scales:{y:{beginAtZero:true}}}});
+        }catch(e){}},300)}
 
-        <!-- ========== COURSES ========== -->
-        <div class="spa-view" id="view-courses">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Courses</h3><p>Course catalogue management</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddCourse()"><i class="fas fa-plus me-1"></i> New Course</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="coursesTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Code</th><th>Title</th><th>Department</th><th>Level</th><th>Credits</th><th>Semester</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="coursesBody"></tbody>
-                </table>
-            </div></div>
-        </div>
-
-        <!-- ========== SESSIONS ========== -->
-        <div class="spa-view" id="view-sessions">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Academic Sessions</h3><p>Manage academic year sessions</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddSession()"><i class="fas fa-plus me-1"></i> New Session</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="sessionsTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Session</th><th>Semester</th><th>Start</th><th>End</th><th>Status</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="sessionsBody"></tbody>
-                </table>
-            </div></div>
-        </div>
-
-        <!-- ========== STAFF ========== -->
-        <div class="spa-view" id="view-staff">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Staff Directory</h3><p>All staff members and their details</p></div>
-                <button class="btn btn-primary btn-sm px-4 rounded-pill" onclick="showAddStaff()"><i class="fas fa-plus me-1"></i> New Staff</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="staffTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Name</th><th>Username</th><th>Role</th><th>Department</th><th>Phone</th><th>Status</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="staffBody"></tbody>
-                </table>
-            </div></div>
-        </div>
-
-        <!-- ========== USERS ========== -->
-        <div class="spa-view" id="view-users">
-            <div class="section-header">
-                <div class="section-header-left"><h3>User Accounts</h3><p>System user management and access control</p></div>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="usersTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Username</th><th>Full Name</th><th>Role</th><th>Status</th><th>Last Login</th><th class="text-end pe-4">Actions</th></tr></thead>
-                    <tbody id="usersBody"></tbody>
-                </table>
-            </div></div>
-        </div>
-
-        <!-- ========== AUDIT ========== -->
-        <div class="spa-view" id="view-audit">
-            <div class="section-header">
-                <div class="section-header-left"><h3>Audit Logs</h3><p>Complete system activity history</p></div>
-                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadAuditLogs()"><i class="fas fa-sync me-1"></i>Refresh</button>
-            </div>
-            <div class="table-card"><div class="table-responsive">
-                <table id="auditTable" class="table table-hover mb-0" style="width:100%">
-                    <thead style="background:#f8fafc"><tr><th class="ps-4">Action</th><th>User</th><th>Entity</th><th>IP Address</th><th>Date & Time</th></tr></thead>
-                    <tbody id="auditBody"></tbody>
-                </table>
-            </div></div>
-        </div>
-
-        <!-- ========== SETTINGS ========== -->
-        <div class="spa-view" id="view-settings">
-            <div class="section-header">
-                <div class="section-header-left"><h3>System Settings</h3><p>Account, security, and system configuration</p></div>
-            </div>
-            <div class="row g-4">
-                <div class="col-lg-6">
-                    <div class="chart-card">
-                        <div class="chart-title mb-1">Change Password</div>
-                        <div class="chart-sub mb-3">Update your account password</div>
-                        <div id="pwdAlert" class="alert d-none mb-3"></div>
-                        <form id="changePwdForm">
-                            <div class="mb-3"><label class="form-label-sm">Current Password</label><input type="password" class="form-ctrl w-100" id="currentPwd" placeholder="Current password" required></div>
-                            <div class="mb-3"><label class="form-label-sm">New Password</label><input type="password" class="form-ctrl w-100" id="newPwd" placeholder="New password (min. 6 chars)" required></div>
-                            <div class="mb-3"><label class="form-label-sm">Confirm New Password</label><input type="password" class="form-ctrl w-100" id="confirmPwd" placeholder="Confirm new password" required></div>
-                            <button type="submit" class="btn btn-primary rounded-pill px-4">Update Password</button>
-                        </form>
-                    </div>
-                </div>
-                <div class="col-lg-6">
-                    <div class="chart-card mb-4">
-                        <div class="chart-title mb-1">System Information</div>
-                        <div class="chart-sub mb-3">Current system state overview</div>
-                        <div class="d-flex flex-column gap-2">
-                            <?php $info=[['PHP Version',PHP_VERSION],['Server OS',PHP_OS],['Current Role',$ROLE],['Session ID',substr(session_id(),0,16).'...']]; foreach($info as [$k,$v]): ?>
-                            <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-                                <span style="font-size:.85rem;color:#64748b"><?= $k ?></span>
-                                <span style="font-size:.85rem;font-weight:600;color:#1a202c"><?= htmlspecialchars($v) ?></span>
-                            </div>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-title mb-1">System Links</div>
-                        <div class="chart-sub mb-3">Quick access tools</div>
-                        <div class="d-flex flex-column gap-2">
-                            <a href="install.php" target="_blank" class="btn btn-sm btn-outline-warning rounded-pill"><i class="fas fa-database me-2"></i>Database Installer</a>
-                            <a href="index.php?verify=" target="_blank" class="btn btn-sm btn-outline-info rounded-pill"><i class="fas fa-qrcode me-2"></i>Certificate Verification Portal</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div><!-- end content-area -->
-</div><!-- end main-area -->
-</div><!-- end app-wrapper -->
-
-<!-- ========== STUDENT MODAL ========== -->
-<div class="modal fade" id="studentModal" tabindex="-1">
-<div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-<div class="modal-content">
-<div class="modal-header" style="background:linear-gradient(135deg,#0a2540,#1e3a5f);color:#fff">
-    <h5 class="modal-title fw-bold"><i class="fas fa-user-graduate me-2"></i><span id="studentModalTitle">Add New Student</span></h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-</div>
-<div class="modal-body p-0">
-<form id="studentForm" class="p-4">
-<input type="hidden" id="studentId">
-<div class="row g-3">
-    <div class="col-12"><h6 class="fw-bold text-primary mb-0" style="font-size:.82rem;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-address-card me-2"></i>Academic Identity</h6><hr class="mt-2"></div>
-    <div class="col-md-4"><label class="form-label-sm">Admission Number *</label><input class="form-ctrl w-100" id="s_adm" placeholder="e.g. SAZUG/2024/001" required></div>
-    <div class="col-md-4"><label class="form-label-sm">Matric Number</label><input class="form-ctrl w-100" id="s_matric" placeholder="e.g. CSC/24/001"></div>
-    <div class="col-md-4"><label class="form-label-sm">Admission Date *</label><input type="date" class="form-ctrl w-100" id="s_admdate" required></div>
-
-    <div class="col-12 mt-2"><h6 class="fw-bold text-primary mb-0" style="font-size:.82rem;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-user me-2"></i>Personal Information</h6><hr class="mt-2"></div>
-    <div class="col-md-6"><label class="form-label-sm">Full Name *</label><input class="form-ctrl w-100" id="s_name" placeholder="Full legal name" required></div>
-    <div class="col-md-3"><label class="form-label-sm">Date of Birth *</label><input type="date" class="form-ctrl w-100" id="s_dob" required></div>
-    <div class="col-md-3"><label class="form-label-sm">Gender *</label>
-        <select class="form-ctrl w-100" id="s_gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select>
-    </div>
-    <div class="col-md-4"><label class="form-label-sm">Phone Number</label><input class="form-ctrl w-100" id="s_phone" placeholder="e.g. 08012345678"></div>
-    <div class="col-md-4"><label class="form-label-sm">State</label><input class="form-ctrl w-100" id="s_state" placeholder="State of origin"></div>
-    <div class="col-md-4"><label class="form-label-sm">LGA</label><input class="form-ctrl w-100" id="s_lga" placeholder="Local Government Area"></div>
-    <div class="col-12"><label class="form-label-sm">Residential Address</label><textarea class="form-ctrl w-100" id="s_address" rows="2" placeholder="Full residential address"></textarea></div>
-
-    <div class="col-12 mt-2"><h6 class="fw-bold text-primary mb-0" style="font-size:.82rem;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-university me-2"></i>Academic Details</h6><hr class="mt-2"></div>
-    <div class="col-md-3"><label class="form-label-sm">Faculty *</label><select class="form-ctrl w-100" id="s_faculty" required onchange="loadProgrammesByFaculty(this.value)"><option value="">Select Faculty</option></select></div>
-    <div class="col-md-3"><label class="form-label-sm">Department *</label><select class="form-ctrl w-100" id="s_dept" required><option value="">Select Dept</option></select></div>
-    <div class="col-md-3"><label class="form-label-sm">Programme *</label><select class="form-ctrl w-100" id="s_prog" required><option value="">Select Programme</option></select></div>
-    <div class="col-md-1"><label class="form-label-sm">Level *</label><select class="form-ctrl w-100" id="s_level" required><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option></select></div>
-    <div class="col-md-2"><label class="form-label-sm">Session *</label><select class="form-ctrl w-100" id="s_session" required><option value="">Select</option></select></div>
-    <div class="col-md-3"><label class="form-label-sm">Nationality</label><input class="form-ctrl w-100" id="s_nation" value="Nigerian"></div>
-
-    <div class="col-12 mt-2"><h6 class="fw-bold text-primary mb-0" style="font-size:.82rem;text-transform:uppercase;letter-spacing:1px"><i class="fas fa-users me-2"></i>Guardian Information</h6><hr class="mt-2"></div>
-    <div class="col-md-4"><label class="form-label-sm">Guardian Name</label><input class="form-ctrl w-100" id="s_gname" placeholder="Guardian full name"></div>
-    <div class="col-md-4"><label class="form-label-sm">Guardian Phone</label><input class="form-ctrl w-100" id="s_gphone" placeholder="Guardian phone number"></div>
-    <div class="col-md-4"><label class="form-label-sm">Guardian Address</label><input class="form-ctrl w-100" id="s_gaddress" placeholder="Guardian address"></div>
-</div>
-</form>
-</div>
-<div class="modal-footer">
-    <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
-    <button type="button" class="btn btn-primary rounded-pill px-5" onclick="saveStudent()"><i class="fas fa-save me-2"></i>Save Student</button>
-</div>
-</div></div></div>
-
-<!-- ========== STUDENT DETAIL MODAL ========== -->
-<div class="modal fade" id="studentDetailModal" tabindex="-1">
-<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-<div class="modal-content">
-<div class="modal-header" style="background:linear-gradient(135deg,#0a2540,#1e3a5f);color:#fff">
-    <h5 class="modal-title fw-bold"><i class="fas fa-id-card me-2"></i>Student Profile</h5>
-    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-</div>
-<div class="modal-body p-0" id="studentDetailContent"></div>
-<div class="modal-footer">
-    <div id="studentDetailActions" class="d-flex gap-2 flex-wrap"></div>
-    <button type="button" class="btn btn-outline-secondary rounded-pill ms-auto px-4" data-bs-dismiss="modal">Close</button>
-</div>
-</div></div></div>
-
-<!-- ========== GENERIC MODALS ========== -->
-<div class="modal fade" id="facultyModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold" id="facultyModalTitle">Add Faculty</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body"><input type="hidden" id="facultyId">
-    <div class="mb-3"><label class="form-label-sm">Faculty Name *</label><input class="form-ctrl w-100" id="fac_name" placeholder="e.g. Faculty of Engineering" required></div>
-    <div class="mb-3"><label class="form-label-sm">Code *</label><input class="form-ctrl w-100" id="fac_code" placeholder="e.g. FET" style="text-transform:uppercase" required></div>
-    <div class="mb-3"><label class="form-label-sm">HOD Name</label><input class="form-ctrl w-100" id="fac_hod" placeholder="Head of Faculty"></div>
-    <div class="mb-3"><label class="form-label-sm">Description</label><textarea class="form-ctrl w-100" id="fac_desc" rows="2"></textarea></div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveFaculty()">Save</button></div>
-</div></div></div>
-
-<div class="modal fade" id="deptModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold" id="deptModalTitle">Add Department</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body"><input type="hidden" id="deptId">
-    <div class="mb-3"><label class="form-label-sm">Faculty *</label><select class="form-ctrl w-100" id="dept_faculty" required><option value="">Select Faculty</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Department Name *</label><input class="form-ctrl w-100" id="dept_name" placeholder="e.g. Computer Engineering" required></div>
-    <div class="mb-3"><label class="form-label-sm">Code *</label><input class="form-ctrl w-100" id="dept_code" placeholder="e.g. CEN" style="text-transform:uppercase" required></div>
-    <div class="mb-3"><label class="form-label-sm">HOD Name</label><input class="form-ctrl w-100" id="dept_hod" placeholder="Head of Department"></div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveDepartment()">Save</button></div>
-</div></div></div>
-
-<div class="modal fade" id="progModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold">Add Programme</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body">
-    <div class="mb-3"><label class="form-label-sm">Department *</label><select class="form-ctrl w-100" id="prog_dept" required><option value="">Select Dept</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Programme Name *</label><input class="form-ctrl w-100" id="prog_name" placeholder="Programme name" required></div>
-    <div class="mb-3"><label class="form-label-sm">Type *</label><select class="form-ctrl w-100" id="prog_type" required><option>ND</option><option>HND</option><option>Diploma</option><option>Degree</option><option>Masters</option><option>PhD</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Duration (years) *</label><input type="number" class="form-ctrl w-100" id="prog_dur" value="2" min="1" max="7" required></div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveProgramme()">Save</button></div>
-</div></div></div>
-
-<div class="modal fade" id="courseModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold">Add Course</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body">
-    <div class="mb-3"><label class="form-label-sm">Department *</label><select class="form-ctrl w-100" id="crs_dept" required onchange="loadProgrammesForCourse(this.value)"><option value="">Select Dept</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Programme *</label><select class="form-ctrl w-100" id="crs_prog" required><option value="">Select Programme</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Course Code *</label><input class="form-ctrl w-100" id="crs_code" placeholder="e.g. CSC101" style="text-transform:uppercase" required></div>
-    <div class="mb-3"><label class="form-label-sm">Course Title *</label><input class="form-ctrl w-100" id="crs_title" placeholder="Full course title" required></div>
-    <div class="row g-2 mb-3">
-        <div class="col-4"><label class="form-label-sm">Level *</label><select class="form-ctrl w-100" id="crs_level" required><option>100</option><option>200</option><option>300</option><option>400</option></select></div>
-        <div class="col-4"><label class="form-label-sm">Credits *</label><input type="number" class="form-ctrl w-100" id="crs_units" value="3" min="1" max="6"></div>
-        <div class="col-4"><label class="form-label-sm">Semester</label><select class="form-ctrl w-100" id="crs_sem"><option>First</option><option>Second</option></select></div>
-    </div>
-    <div class="form-check"><input type="checkbox" class="form-check-input" id="crs_compulsory" checked><label class="form-check-label small">Compulsory Course</label></div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveCourse()">Save</button></div>
-</div></div></div>
-
-<div class="modal fade" id="sessionModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold">New Academic Session</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body">
-    <div class="mb-3"><label class="form-label-sm">Session Name *</label><input class="form-ctrl w-100" id="ses_name" placeholder="e.g. 2026/2027" required></div>
-    <div class="mb-3"><label class="form-label-sm">Semester *</label><select class="form-ctrl w-100" id="ses_sem" required><option>First</option><option>Second</option><option>Third</option></select></div>
-    <div class="row g-2">
-        <div class="col-6"><label class="form-label-sm">Start Date</label><input type="date" class="form-ctrl w-100" id="ses_start"></div>
-        <div class="col-6"><label class="form-label-sm">End Date</label><input type="date" class="form-ctrl w-100" id="ses_end"></div>
-    </div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveSession()">Save</button></div>
-</div></div></div>
-
-<div class="modal fade" id="staffModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold" id="staffModalTitle">Add Staff Member</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-<div class="modal-body"><input type="hidden" id="staffId">
-<div class="row g-3">
-    <div class="col-md-6"><label class="form-label-sm">Full Name *</label><input class="form-ctrl w-100" id="sf_name" required></div>
-    <div class="col-md-6"><label class="form-label-sm">Staff ID</label><input class="form-ctrl w-100" id="sf_staffid" placeholder="Official staff ID"></div>
-    <div class="col-md-6"><label class="form-label-sm">Username *</label><input class="form-ctrl w-100" id="sf_username" required></div>
-    <div class="col-md-6"><label class="form-label-sm">Password *</label><input type="password" class="form-ctrl w-100" id="sf_password" placeholder="Min. 6 characters" required></div>
-    <div class="col-md-6"><label class="form-label-sm">Email</label><input type="email" class="form-ctrl w-100" id="sf_email" placeholder="Staff email address"></div>
-    <div class="col-md-6"><label class="form-label-sm">Phone</label><input class="form-ctrl w-100" id="sf_phone"></div>
-    <div class="col-md-6"><label class="form-label-sm">Role *</label>
-        <select class="form-ctrl w-100" id="sf_role" required>
-            <option>Lecturer</option><option>Department Officer</option><option>Registrar</option>
-            <?php if($isAdmin): ?><option>Administrator</option><?php endif; ?>
-        </select>
-    </div>
-    <div class="col-md-6"><label class="form-label-sm">Gender</label><select class="form-ctrl w-100" id="sf_gender"><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-    <div class="col-md-6"><label class="form-label-sm">Department</label><select class="form-ctrl w-100" id="sf_dept"><option value="">Select Dept</option></select></div>
-    <div class="col-md-6"><label class="form-label-sm">Qualification</label><input class="form-ctrl w-100" id="sf_qual" placeholder="e.g. M.Sc Computer Science"></div>
-    <div class="col-md-6"><label class="form-label-sm">Specialization</label><input class="form-ctrl w-100" id="sf_spec" placeholder="Area of specialization"></div>
-    <div class="col-md-6"><label class="form-label-sm">Date Joined</label><input type="date" class="form-ctrl w-100" id="sf_joined"></div>
-</div>
-</div>
-<div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveStaff()">Save Staff</button></div>
-</div></div></div>
-
-<!-- Scripts -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-const CSRF = '<?= $CSRF ?>';
-const ROLE = '<?= $ROLE ?>';
-let charts = {};
-let studentsTable;
-
-// ===== SIDEBAR TOGGLE =====
-const sidebar = document.getElementById('sidebar');
-document.getElementById('sidebarToggle').addEventListener('click', () => {
-    sidebar.classList.toggle('collapsed');
-});
-document.getElementById('mobileSidebarBtn').addEventListener('click', () => {
-    sidebar.classList.toggle('mobile-open');
-});
-
-// ===== VIEW NAVIGATION =====
-function showView(viewId, btn) {
-    document.querySelectorAll('.spa-view').forEach(v => v.classList.remove('active'));
-    document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.remove('active'));
-    document.getElementById('view-' + viewId)?.classList.add('active');
-    btn?.classList.add('active');
-    document.getElementById('pageTitle').textContent = btn?.querySelector('.nav-text')?.textContent?.trim() || viewId;
-    loadView(viewId);
-}
-
-function loadView(viewId) {
-    switch(viewId) {
-        case 'dashboard':   loadDashboard(); break;
-        case 'students':    loadStudents(); break;
-        case 'faculties':   loadFaculties(); break;
-        case 'departments': loadDepartments(); break;
-        case 'programmes':  loadProgrammes(); break;
-        case 'courses':     loadCourses(); break;
-        case 'sessions':    loadSessions(); break;
-        case 'staff':       loadStaff(); break;
-        case 'users':       loadUsers(); break;
-        case 'audit':       loadAuditLogs(); break;
+    // ============ STUDENTS ============
+    async function loadStudents(){
+        document.getElementById('pageContent').innerHTML='<div class="text-center py-5"><div class="spinner-border text-primary"></div></div>';
+        const d=await apiCall('students',{},'GET');if(!d.success)return;
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-people-fill me-2"></i>Students Management</span><div class="d-flex gap-2"><button class="btn btn-primary btn-sm" onclick="openStudentModal()"><i class="bi bi-plus-lg me-1"></i>Add Student</button></div></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="studentsTable"><thead><tr><th>Student ID</th><th>Name</th><th>Email</th><th>Gender</th><th>Faculty</th><th>Department</th><th>Programme</th><th>Level</th><th>Status</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#studentsTable').DataTable({responsive:true,dom:'Bfrtip',buttons:[{extend:'csv',className:'btn btn-sm btn-outline-primary'},{extend:'print',className:'btn btn-sm btn-outline-primary'}],pageLength:25});
+        dt.clear().rows.add(d.data.map(s=>[s.student_id_number,s.full_name,s.email,s.gender,s.faculty_name||'-',s.department_name||'-',s.programme_name||'-',s.level,`<span class="badge badge-status status-${s.status}">${s.status}</span>`,`<div class="d-flex gap-1">${actionBtns('student',s.id,s.status)}</div>`])).draw();
+        // Load filters
+        const facs=await apiCall('lookup',{type:'faculties'},'GET');const depts=await apiCall('lookup',{type:'departments'},'GET');const progs=await apiCall('lookup',{type:'programmes'},'GET');
+        // Search filters
+        let filterHtml=`<div class="row g-2 mb-3"><div class="col"><select class="form-select form-select-sm" id="filterStatus" onchange="filterStudents()"><option value="">All Status</option><option>active</option><option>suspended</option><option>withdrawn</option><option>graduated</option></select></div>`;
+        filterHtml+=`<div class="col"><select class="form-select form-select-sm" id="filterGender" onchange="filterStudents()"><option value="">All Gender</option><option>Male</option><option>Female</option></select></div>`;
+        filterHtml+=`<div class="col"><select class="form-select form-select-sm" id="filterFaculty" onchange="loadDeptFilter()"><option value="">All Faculties</option>${(facs.data||[]).map(f=>`<option value="${f.id}">${f.name}</option>`).join('')}</select></div>`;
+        filterHtml+=`<div class="col"><select class="form-select form-select-sm" id="filterDept"><option value="">All Departments</option></select></div>`;
+        filterHtml+=`<div class="col"><select class="form-select form-select-sm" id="filterProgType"><option value="">All Types</option><option>Diploma</option><option>ND</option><option>HND</option><option>Degree</option><option>Masters</option></select></div></div>`;
+        $('.table-card .card-header').after(filterHtml);
     }
-}
-function refreshCurrentView() {
-    const active = document.querySelector('.nav-item-btn.active');
-    if (active) loadView(active.getAttribute('data-view'));
-}
 
-// ===== API HELPER =====
-async function api(action, data = {}, method = 'POST') {
-    const res = await fetch('api.php', {
-        method,
-        headers: {'Content-Type':'application/json','X-CSRF-Token': CSRF},
-        body: method === 'POST' ? JSON.stringify({action, ...data}) : undefined,
-    });
-    return res.json();
-}
-async function apiGet(action, params = {}) {
-    const qs = new URLSearchParams({action, ...params}).toString();
-    const res = await fetch('api.php?' + qs);
-    return res.json();
-}
+    async function filterStudents(){let q={};const s=$('#filterStatus').val();if(s)q.status=s;const g=$('#filterGender').val();if(g)q.gender=g;const f=$('#filterFaculty').val();if(f)q.faculty=f;const d=$('#filterDept').val();if(d)q.department=d;const p=$('#filterProgType').val();if(p)q.programme_type=p;const r=await apiCall('students',q,'GET');if(r.success){$('#studentsTable').DataTable().clear().rows.add(r.data.map(s=>[s.student_id_number,s.full_name,s.email,s.gender,s.faculty_name||'-',s.department_name||'-',s.programme_name||'-',s.level,`<span class="badge badge-status status-${s.status}">${s.status}</span>`,`<div class="d-flex gap-1">${actionBtns('student',s.id,s.status)}</div>`])).draw()}}
+    async function loadDeptFilter(){const fid=$('#filterFaculty').val();const r=await apiCall('lookup',{type:'departments',faculty_id:fid},'GET');$('#filterDept').html('<option value="">All Departments</option>'+(r.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join(''));filterStudents()}
 
-// ===== DEBOUNCE =====
-function debounce(fn, ms) {
-    let t;
-    return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
-}
+    function actionBtns(type,id,status=''){let b=`<button class="btn btn-action btn-outline-primary" onclick="openEditModal('${type}',${id})" title="Edit"><i class="bi bi-pencil"></i></button>`;
+    if(type==='student'){b+=`<button class="btn btn-action btn-outline-warning" onclick="studentAction(${id},'suspend')" title="Suspend"><i class="bi bi-pause-circle"></i></button>`;
+    b+=`<button class="btn btn-action btn-outline-danger" onclick="studentAction(${id},'withdraw')" title="Withdraw"><i class="bi bi-x-circle"></i></button>`;
+    if(status==='suspended'||status==='withdrawn')b+=`<button class="btn btn-action btn-outline-success" onclick="studentAction(${id},'reinstate')" title="Reinstate"><i class="bi bi-arrow-counterclockwise"></i></button>`;
+    b+=`<button class="btn btn-action btn-outline-info" onclick="studentAction(${id},'graduate')" title="Graduate"><i class="bi bi-mortarboard"></i></button>`;
+    b+=`<button class="btn btn-action btn-outline-secondary" onclick="studentAction(${id},'promote')" title="Promote"><i class="bi bi-arrow-up-circle"></i></button>`}
+    b+=`<button class="btn btn-action btn-outline-danger" onclick="deleteItem('${type}',${id})" title="Delete"><i class="bi bi-trash"></i></button>`;return b}
 
-// ===== TOAST =====
-function toast(icon, title) {
-    Swal.fire({toast:true,position:'top-end',icon,title,showConfirmButton:false,timer:2500,timerProgressBar:true});
-}
+    function openStudentModal(data=null){showCrudModal('Student',data,`
+    <div class="row g-3">
+    <div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" class="form-control" name="full_name" required value="${data?.full_name||''}"></div>
+    <div class="col-md-6"><label class="form-label">Username *</label><input type="text" class="form-control" name="username" required value="${data?.student_id_number?'':''}"></div>
+    <div class="col-md-6"><label class="form-label">Email *</label><input type="email" class="form-control" name="email" required value="${data?.email||''}"></div>
+    <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone" value="${data?.phone||''}"></div>
+    <div class="col-md-6"><label class="form-label">Gender *</label><select class="form-select" name="gender" required><option value="Male" ${data?.gender==='Male'?'selected':''}>Male</option><option value="Female" ${data?.gender==='Female'?'selected':''}>Female</option></select></div>
+    <div class="col-md-6"><label class="form-label">Date of Birth</label><input type="date" class="form-control" name="date_of_birth" value="${data?.date_of_birth||''}"></div>
+    <div class="col-md-4"><label class="form-label">Faculty</label><select class="form-select" name="faculty_id" id="modalFaculty" onchange="loadModalDepts()"><option value="">Select</option></select></div>
+    <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id" id="modalDept" onchange="loadModalProgs()"><option value="">Select</option></select></div>
+    <div class="col-md-4"><label class="form-label">Programme</label><select class="form-select" name="programme_id" id="modalProg"><option value="">Select</option></select></div>
+    <div class="col-md-4"><label class="form-label">Programme Type</label><select class="form-select" name="programme_type"><option ${data?.programme_type==='Diploma'?'selected':''}>Diploma</option><option ${data?.programme_type==='ND'?'selected':''}>ND</option><option ${data?.programme_type==='HND'?'selected':''}>HND</option><option ${data?.programme_type==='Degree'?'selected':''}>Degree</option><option ${data?.programme_type==='Masters'?'selected':''}>Masters</option></select></div>
+    <div class="col-md-4"><label class="form-label">Level</label><select class="form-select" name="level">${[100,200,300,400,500,600].map(l=>`<option value="${l}" ${data?.level==l?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="col-md-4"><label class="form-label">Session</label><select class="form-select" name="session_id" id="modalSession"><option value="">Select</option></select></div>
+    <div class="col-md-6"><label class="form-label">State of Origin</label><input type="text" class="form-control" name="state_of_origin" value="${data?.state_of_origin||''}"></div>
+    <div class="col-md-6"><label class="form-label">Guardian Name</label><input type="text" class="form-control" name="guardian_name" value="${data?.guardian_name||''}"></div>
+    <div class="col-12"><label class="form-label">Home Address</label><textarea class="form-control" name="home_address" rows="2">${data?.home_address||''}</textarea></div>
+    </div>`,async(formData)=>{
+        if(data){formData.id=data.id;const r=await apiCall('update_student',formData);return r}
+        const r=await apiCall('create_student',formData);return r},
+    async()=>{
+        const facs=await apiCall('lookup',{type:'faculties'},'GET');$('#modalFaculty').html('<option value="">Select</option>'+(facs.data||[]).map(f=>`<option value="${f.id}">${f.name}</option>`).join(''));
+        const sess=await apiCall('lookup',{type:'sessions'},'GET');$('#modalSession').html('<option value="">Select</option>'+(sess.data||[]).map(s=>`<option value="${s.id}">${s.name}</option>`).join(''));
+        if(data&&data.faculty_id){$('#modalFaculty').val(data.faculty_id);await loadModalDepts(data.department_id);if(data.department_id)await loadModalProgs(data.programme_id)}
+    })}
 
-// ===== DATE =====
-document.getElementById('dashDate').textContent = new Date().toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    async function loadModalDepts(sel=null){const f=$('#modalFaculty').val();const r=await apiCall('lookup',{type:'departments',faculty_id:f},'GET');$('#modalDept').html('<option value="">Select</option>'+(r.data||[]).map(d=>`<option value="${d.id}" ${d.id==sel?'selected':''}>${d.name}</option>`).join(''))}
+    async function loadModalProgs(sel=null){const d=$('#modalDept').val();const r=await apiCall('lookup',{type:'programmes',department_id:d},'GET');$('#modalProg').html('<option value="">Select</option>'+(r.data||[]).map(p=>`<option value="${p.id}" ${p.id==sel?'selected':''}>${p.name} (${p.type})</option>`).join(''))}
 
-// ===== DASHBOARD =====
-async function loadDashboard() {
-    const res = await apiGet('dashboard_stats');
-    if (!res.status) return;
-    const d = res.data;
-    const statMap = {
-        total_students: d.total_students, active_students: d.active_students,
-        graduated_students: d.graduated_students, total_staff: d.total_staff,
-        total_departments: d.total_departments, total_certificates: d.total_certificates
-    };
-    Object.entries(statMap).forEach(([k,v]) => {
-        const el = document.getElementById('stat-'+k);
-        if (el) { el.textContent = parseInt(v||0).toLocaleString(); }
-    });
-    document.getElementById('activeSessionBadge').textContent = d.active_session || 'No active session';
+    async function studentAction(id,type){const label=type.charAt(0).toUpperCase()+type.slice(1);Swal.fire({title:`${label} Student?`,icon:'question',showCancelButton:true,confirmButtonText:`Yes, ${label}`,confirmButtonColor:type==='reinstate'?'#198754':'#dc3545'}).then(async r=>{if(r.isConfirmed){const res=await apiCall('student_action',{id,type});if(res.success){Swal.fire({icon:'success',title:'Success!',text:res.message,timer:1500,showConfirmButton:false});loadStudents()}else{Swal.fire('Error',res.error,'error')}}})}
 
-    // Activity Feed
-    const feed = document.getElementById('activityFeed');
-    feed.innerHTML = (d.recent_activities||[]).slice(0,8).map(a => `
-        <div class="activity-item">
-            <div class="activity-dot"></div>
-            <div>
-                <div style="font-size:.82rem;font-weight:600;color:#1a202c">${a.action}</div>
-                <div style="font-size:.74rem;color:#94a3b8">${a.username||'System'} &middot; ${new Date(a.created_at).toLocaleString()}</div>
-            </div>
-        </div>`).join('') || '<p class="text-muted small p-2">No recent activity</p>';
-
-    // Charts
-    renderStatusChart(d.by_status||[]);
-    renderLevelChart(d.by_level||[]);
-    renderDeptChart(d.by_department||[]);
-}
-
-function renderChart(id, config) {
-    if (charts[id]) { charts[id].destroy(); }
-    const ctx = document.getElementById(id)?.getContext('2d');
-    if (ctx) charts[id] = new Chart(ctx, config);
-}
-
-function renderStatusChart(data) {
-    const labels = data.map(d=>d.status), vals = data.map(d=>parseInt(d.count));
-    renderChart('statusChart', {
-        type: 'doughnut',
-        data: { labels, datasets:[{data:vals, backgroundColor:['#22c55e','#f59e0b','#3b82f6','#ef4444'], borderWidth:2, borderColor:'#fff'}] },
-        options: { plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}, cutout:'68%' }
-    });
-}
-function renderLevelChart(data) {
-    const labels = data.map(d=>'Level '+d.level), vals = data.map(d=>parseInt(d.count));
-    renderChart('levelChart', {
-        type: 'bar',
-        data: { labels, datasets:[{label:'Students',data:vals,backgroundColor:'rgba(59,130,246,.8)',borderRadius:6,borderSkipped:false}] },
-        options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}} }
-    });
-}
-function renderDeptChart(data) {
-    const labels = data.map(d=>d.dept), vals = data.map(d=>parseInt(d.count));
-    renderChart('deptChart', {
-        type: 'bar',
-        data: { labels, datasets:[{label:'Students',data:vals,backgroundColor:['#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#f97316'].slice(0,labels.length),borderRadius:6}] },
-        options: { indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},y:{grid:{display:false}}} }
-    });
-}
-
-// ===== STUDENTS =====
-function statusBadge(s) {
-    const map={Active:'badge-active',Suspended:'badge-suspended',Graduated:'badge-graduated',Withdrawn:'badge-withdrawn'};
-    return `<span class="${map[s]||'badge-withdrawn'}">${s}</span>`;
-}
-
-async function loadStudents() {
-    const dept   = document.getElementById('filterDept')?.value   || '';
-    const status = document.getElementById('filterStatus')?.value || '';
-    const level  = document.getElementById('filterLevel')?.value  || '';
-    const search = document.getElementById('filterSearch')?.value || '';
-    const params = {};
-    if (dept)   params.department_id = dept;
-    if (status) params.status        = status;
-    if (level)  params.level         = level;
-    if (search) params.search        = search;
-    const res = await apiGet('get_students', params);
-    if (!res.status) return;
-    const body = document.getElementById('studentsBody');
-    body.innerHTML = res.data.length === 0
-        ? '<tr><td colspan="7" class="text-center py-5 text-muted"><i class="fas fa-users-slash me-2"></i>No records found</td></tr>'
-        : res.data.map(s => `
-            <tr>
-                <td class="ps-4"><code style="font-size:.8rem">${s.admission_number}</code></td>
-                <td><span class="fw-600">${s.full_name}</span><br><small class="text-muted">${s.matric_number||'No matric'}</small></td>
-                <td>${s.department_name}</td>
-                <td>${s.programme_name} <small class="text-muted">(${s.programme_type})</small></td>
-                <td><span class="badge bg-light text-dark border">${s.level}</span></td>
-                <td>${statusBadge(s.status)}</td>
-                <td class="text-end pe-4">
-                    <div class="d-flex gap-1 justify-content-end">
-                        <button class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px" onclick="viewStudent(${s.id})"><i class="fas fa-eye"></i></button>
-                        <?php if($isRegistrar): ?>
-                        <button class="btn btn-sm btn-outline-secondary" style="border-radius:8px;padding:4px 10px" onclick="editStudent(${s.id})"><i class="fas fa-edit"></i></button>
-                        <?php endif; ?>
-                    </div>
-                </td>
-            </tr>`).join('');
-    // Populate dept filter if empty
-    if (!document.getElementById('filterDept').options.length > 1) return;
-}
-
-function reloadStudentsTable() { loadStudents(); }
-function clearFilters() {
-    ['filterDept','filterStatus','filterLevel','filterSearch'].forEach(id => {
-        const el = document.getElementById(id); if (el) el.value = '';
-    });
-    loadStudents();
-}
-
-async function viewStudent(id) {
-    const res = await apiGet('get_student', {id});
-    if (!res.status) { toast('error','Student not found'); return; }
-    const s = res.data;
-    const content = document.getElementById('studentDetailContent');
-    content.innerHTML = `
-    <div style="padding:24px">
-        <div class="row g-4">
-            <div class="col-md-3 text-center">
-                <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#fff;margin:0 auto 12px">
-                    ${s.full_name.charAt(0)}
-                </div>
-                <div class="fw-bold">${s.full_name}</div>
-                ${statusBadge(s.status)}
-            </div>
-            <div class="col-md-9">
-                <div class="row g-2">
-                    ${[
-                        ['Admission No.',s.admission_number],['Matric No.',s.matric_number||'Not Assigned'],
-                        ['Gender',s.gender],['D.O.B',s.dob],['Phone',s.phone||'—'],
-                        ['Department',s.department_name],['Faculty',s.faculty_name],
-                        ['Programme',s.programme_name+' ('+s.programme_type+')'],
-                        ['Level','Level '+s.level],['Session',s.session_name],
-                        ['Admission Date',s.admission_date],['State',s.state],
-                        ['Nationality',s.nationality],['Guardian',s.guardian_name||'—'],
-                    ].map(([l,v])=>`<div class="col-6"><div class="p-2 rounded" style="background:#f8fafc"><div style="font-size:.72rem;color:#94a3b8">${l}</div><div style="font-size:.88rem;font-weight:600">${v||'—'}</div></div></div>`).join('')}
-                </div>
-                ${s.certificate_number ? `<div class="mt-3 p-3 rounded-3" style="background:#dbeafe;border:1px solid #93c5fd"><i class="fas fa-certificate me-2 text-primary"></i><strong>Certificate:</strong> ${s.certificate_number} &nbsp;&nbsp; <small>Issued: ${s.cert_issue_date}</small></div>` : ''}
-            </div>
-        </div>
-    </div>`;
-    const actions = document.getElementById('studentDetailActions');
-    actions.innerHTML = '';
-    <?php if($isRegistrar): ?>
-    const statusBtns = ['Active','Suspended','Withdrawn','Graduated'].filter(st => st !== s.status).map(st =>
-        `<button class="btn btn-sm btn-outline-${st==='Graduated'?'primary':st==='Active'?'success':'danger'} rounded-pill" onclick="updateStatus(${s.id},'${st}')">${st}</button>`
-    ).join('');
-    actions.innerHTML += statusBtns;
-    if (s.status === 'Graduated' && !s.certificate_number) {
-        actions.innerHTML += `<button class="btn btn-sm btn-warning rounded-pill" onclick="genCert(${s.id})"><i class="fas fa-certificate me-1"></i>Issue Cert</button>`;
+    // ============ GENERIC CRUD ============
+    function showCrudModal(title,data,formHtml,saveFn,onLoad=null){
+        const id=data?'edit-'+title.toLowerCase():'create-'+title.toLowerCase();
+        const modalHtml=`<div class="modal fade" id="crudModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title"><i class="bi bi-${data?'pencil':'plus-circle'} me-2"></i>${data?'Edit':'Create'} ${title}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="crudForm">${formHtml}</form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="crudSaveBtn" onclick="saveCrud()"><i class="bi bi-check-lg me-1"></i>Save</button></div></div></div></div>`;
+        $('#crudModal').remove();$('body').append(modalHtml);const modal=new bootstrap.Modal(document.getElementById('crudModal'));modal.show();
+        window._crudSaveFn=saveFn;if(onLoad)onLoad();
+        window.saveCrud=async function(){const fd={};$('#crudForm [name]').each(function(){fd[this.name]=this.value});const r=await saveFn(fd);if(r&&r.success){Swal.fire({icon:'success',title:'Success!',text:r.message||'Saved successfully',timer:1500,showConfirmButton:false});modal.hide();loadPage(currentPage)}else{Swal.fire('Error',r?.error||'Save failed','error')}}
     }
-    <?php endif; ?>
-    new bootstrap.Modal(document.getElementById('studentDetailModal')).show();
-}
 
-async function updateStatus(id, status) {
-    const res = await api('update_student_status', {id, status});
-    toast(res.status ? 'success' : 'error', res.message);
-    if (res.status) { bootstrap.Modal.getInstance(document.getElementById('studentDetailModal'))?.hide(); loadStudents(); }
-}
-async function genCert(studentId) {
-    Swal.fire({title:'Generate Certificate?',text:'This will issue an official graduation certificate with QR code.',icon:'question',showCancelButton:true,confirmButtonText:'Yes, Generate'}).then(async r => {
-        if (r.isConfirmed) {
-            const res = await api('generate_certificate', {student_id: studentId});
-            toast(res.status ? 'success' : 'error', res.message || res.cert_number || 'Error');
-            if (res.status) { bootstrap.Modal.getInstance(document.getElementById('studentDetailModal'))?.hide(); loadStudents(); }
-        }
-    });
-}
+    async function openEditModal(type,id){
+        let actionMap={student:'students',faculty:'faculties',department:'departments',programme:'programmes',course:'courses',staff:'staff'};
+        const r=await apiCall(actionMap[type]||type+'s',{},'GET');
+        const item=(r.data||[]).find(i=>i.id==id);
+        if(type==='student')openStudentModal(item);
+        else if(type==='faculty')openFacultyModal(item);
+        else if(type==='department')openDepartmentModal(item);
+        else if(type==='programme')openProgrammeModal(item);
+        else if(type==='course')openCourseModal(item);
+        else if(type==='staff')openStaffModal(item);
+    }
 
-function showAddStudent() {
-    document.getElementById('studentId').value = '';
-    document.getElementById('studentModalTitle').textContent = 'Add New Student';
-    document.getElementById('studentForm').reset();
-    document.getElementById('s_admdate').value = new Date().toISOString().slice(0,10);
-    loadFacultiesIntoSelect('s_faculty');
-    loadSessionsIntoSelect('s_session');
-    new bootstrap.Modal(document.getElementById('studentModal')).show();
-}
-async function editStudent(id) {
-    const res = await apiGet('get_student', {id});
-    if (!res.status) { toast('error','Not found'); return; }
-    const s = res.data;
-    document.getElementById('studentId').value      = s.id;
-    document.getElementById('studentModalTitle').textContent = 'Edit Student';
-    document.getElementById('s_adm').value         = s.admission_number;
-    document.getElementById('s_matric').value      = s.matric_number || '';
-    document.getElementById('s_name').value        = s.full_name;
-    document.getElementById('s_dob').value         = s.dob;
-    document.getElementById('s_gender').value      = s.gender;
-    document.getElementById('s_phone').value       = s.phone || '';
-    document.getElementById('s_state').value       = s.state || '';
-    document.getElementById('s_lga').value         = s.lga || '';
-    document.getElementById('s_address').value     = s.address || '';
-    document.getElementById('s_nation').value      = s.nationality || 'Nigerian';
-    document.getElementById('s_admdate').value     = s.admission_date;
-    document.getElementById('s_gname').value       = s.guardian_name || '';
-    document.getElementById('s_gphone').value      = s.guardian_phone || '';
-    document.getElementById('s_gaddress').value    = s.guardian_address || '';
-    await loadFacultiesIntoSelect('s_faculty', s.faculty_id);
-    await loadProgrammesByFaculty(s.faculty_id, s.department_id, s.programme_id);
-    loadSessionsIntoSelect('s_session', s.session_id);
-    document.getElementById('s_level').value       = s.level;
-    new bootstrap.Modal(document.getElementById('studentModal')).show();
-}
+    async function deleteItem(type,id){Swal.fire({title:'Delete this item?',text:'This action cannot be undone.',icon:'warning',showCancelButton:true,confirmButtonColor:'#dc3545',confirmButtonText:'Delete'}).then(async r=>{if(r.isConfirmed){const actionMap={student:'delete_student',faculty:'delete_faculty',department:'delete_department',programme:'delete_programme',course:'delete_course',staff:'delete_staff'};
+    const res=await apiCall(actionMap[type]||'delete_'+type+'s',{id});if(res.success){Swal.fire({icon:'success',title:'Deleted!',timer:1000,showConfirmButton:false});loadPage(currentPage)}else Swal.fire('Error',res.error,'error')}})}
 
-async function saveStudent() {
-    const id = document.getElementById('studentId').value;
-    const data = {
-        admission_number: document.getElementById('s_adm').value,
-        matric_number:    document.getElementById('s_matric').value,
-        full_name:        document.getElementById('s_name').value,
-        dob:              document.getElementById('s_dob').value,
-        gender:           document.getElementById('s_gender').value,
-        phone:            document.getElementById('s_phone').value,
-        address:          document.getElementById('s_address').value,
-        faculty_id:       document.getElementById('s_faculty').value,
-        department_id:    document.getElementById('s_dept').value,
-        programme_id:     document.getElementById('s_prog').value,
-        level:            document.getElementById('s_level').value,
-        session_id:       document.getElementById('s_session').value,
-        state:            document.getElementById('s_state').value,
-        lga:              document.getElementById('s_lga').value,
-        nationality:      document.getElementById('s_nation').value,
-        admission_date:   document.getElementById('s_admdate').value,
-        guardian_name:    document.getElementById('s_gname').value,
-        guardian_phone:   document.getElementById('s_gphone').value,
-        guardian_address: document.getElementById('s_gaddress').value,
-    };
-    const action = id ? 'update_student' : 'create_student';
-    if (id) data.id = id;
-    const res = await api(action, data);
-    toast(res.status ? 'success' : 'error', res.message);
-    if (res.status) { bootstrap.Modal.getInstance(document.getElementById('studentModal'))?.hide(); loadStudents(); }
-}
+    // ============ FACULTIES ============
+    async function loadFaculties(){
+        const d=await apiCall('faculties',{},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-building me-2"></i>Faculties</span><button class="btn btn-primary btn-sm" onclick="openFacultyModal()"><i class="bi bi-plus-lg me-1"></i>Add Faculty</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="facultiesTable"><thead><tr><th>Code</th><th>Name</th><th>Dean</th><th>Departments</th><th>Students</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#facultiesTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print'],pageLength:25});
+        dt.clear().rows.add(d.data.map(f=>[f.code,f.name,f.dean_name||'-',f.dept_count||0,f.student_count||0,`<div class="d-flex gap-1">${actionBtns('faculty',f.id)}</div>`])).draw();
+    }
 
-// ===== FACULTIES =====
-async function loadFaculties() {
-    const res = await apiGet('get_faculties');
-    if (!res.status) return;
-    document.getElementById('facultiesBody').innerHTML = res.data.map(f => `
-        <tr>
-            <td class="ps-4"><code>${f.code}</code></td>
-            <td class="fw-600">${f.name}</td>
-            <td>${f.hod_name||'—'}</td>
-            <td><span class="badge bg-light text-dark border">${f.dept_count} dept(s)</span></td>
-            <td class="text-end pe-4">
-                <button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteFaculty(${f.id})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`).join('') || '<tr><td colspan="5" class="text-center py-4 text-muted">No faculties found</td></tr>';
-}
-function showAddFaculty() {
-    document.getElementById('facultyId').value='';document.getElementById('facultyModalTitle').textContent='Add Faculty';
-    document.getElementById('fac_name').value='';document.getElementById('fac_code').value='';document.getElementById('fac_hod').value='';document.getElementById('fac_desc').value='';
-    new bootstrap.Modal(document.getElementById('facultyModal')).show();
-}
-async function saveFaculty() {
-    const id = document.getElementById('facultyId').value;
-    const data = {name:document.getElementById('fac_name').value,code:document.getElementById('fac_code').value,hod_name:document.getElementById('fac_hod').value,description:document.getElementById('fac_desc').value};
-    const res = await api(id?'update_faculty':'create_faculty', id?{...data,id}:data);
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('facultyModal'))?.hide();loadFaculties();}
-}
-async function deleteFaculty(id) {
-    Swal.fire({title:'Delete Faculty?',icon:'warning',showCancelButton:true,confirmButtonText:'Delete',confirmButtonColor:'#ef4444'}).then(async r=>{
-        if(r.isConfirmed){const res=await api('delete_faculty',{id});toast(res.status?'success':'error',res.message);if(res.status)loadFaculties();}
-    });
-}
+    function openFacultyModal(data=null){showCrudModal('Faculty',data,`
+    <div class="row g-3"><div class="col-md-6"><label class="form-label">Name *</label><input type="text" class="form-control" name="name" required value="${data?.name||''}"></div>
+    <div class="col-md-6"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required value="${data?.code||''}"></div>
+    <div class="col-md-6"><label class="form-label">Dean Name</label><input type="text" class="form-control" name="dean_name" value="${data?.dean_name||''}"></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3">${data?.description||''}</textarea></div></div>`,
+    async fd=>data?await apiCall('update_faculty',{...fd,id:data.id}):await apiCall('create_faculty',fd))}
 
-// ===== DEPARTMENTS =====
-async function loadDepartments() {
-    const res = await apiGet('get_departments');
-    if (!res.status) return;
-    document.getElementById('depsBody').innerHTML = res.data.map(d => `
-        <tr>
-            <td class="ps-4"><code>${d.code}</code></td>
-            <td class="fw-600">${d.name}</td>
-            <td>${d.faculty_name}</td>
-            <td><span class="badge bg-light text-dark border">${d.student_count} student(s)</span></td>
-            <td class="text-end pe-4">
-                <button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteDepartment(${d.id})"><i class="fas fa-trash"></i></button>
-            </td>
-        </tr>`).join('') || '<tr><td colspan="5" class="text-center py-4 text-muted">No departments</td></tr>';
-}
-async function showAddDepartment() {
-    await loadFacultiesIntoSelect('dept_faculty');
-    document.getElementById('deptId').value='';document.getElementById('deptModalTitle').textContent='Add Department';
-    document.getElementById('dept_name').value='';document.getElementById('dept_code').value='';document.getElementById('dept_hod').value='';
-    new bootstrap.Modal(document.getElementById('deptModal')).show();
-}
-async function saveDepartment() {
-    const id=document.getElementById('deptId').value;
-    const data={faculty_id:document.getElementById('dept_faculty').value,name:document.getElementById('dept_name').value,code:document.getElementById('dept_code').value,hod_name:document.getElementById('dept_hod').value};
-    const res=await api(id?'update_department':'create_department',id?{...data,id}:data);
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('deptModal'))?.hide();loadDepartments();}
-}
-async function deleteDepartment(id){Swal.fire({title:'Delete Department?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444'}).then(async r=>{if(r.isConfirmed){const res=await api('delete_department',{id});toast(res.status?'success':'error',res.message);if(res.status)loadDepartments();}});}
+    // ============ DEPARTMENTS ============
+    async function loadDepartments(){
+        const d=await apiCall('departments',{},'GET');const facs=await apiCall('lookup',{type:'faculties'},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-diagram-3 me-2"></i>Departments</span><button class="btn btn-primary btn-sm" onclick="openDepartmentModal()"><i class="bi bi-plus-lg me-1"></i>Add Department</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="deptsTable"><thead><tr><th>Code</th><th>Name</th><th>Faculty</th><th>Head</th><th>Programmes</th><th>Students</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#deptsTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print']});
+        dt.clear().rows.add(d.data.map(de=>[de.code,de.name,de.faculty_name||'-',de.head_name||'-',de.prog_count||0,de.student_count||0,`<div class="d-flex gap-1">${actionBtns('department',de.id)}</div>`])).draw();
+    }
 
-// ===== PROGRAMMES =====
-async function loadProgrammes() {
-    const res = await apiGet('get_programmes');
-    if (!res.status) return;
-    document.getElementById('progsBody').innerHTML = res.data.map(p => `
-        <tr>
-            <td class="ps-4 fw-600">${p.name}</td>
-            <td><span class="badge bg-light text-dark border">${p.type}</span></td>
-            <td>${p.department_name}</td>
-            <td>${p.faculty_name}</td>
-            <td>${p.duration_years} yr(s)</td>
-            <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteProgramme(${p.id})"><i class="fas fa-trash"></i></button></td>
-        </tr>`).join('') || '<tr><td colspan="6" class="text-center py-4 text-muted">No programmes</td></tr>';
-}
-async function showAddProgramme() {
-    const deps=await apiGet('get_departments');
-    const sel=document.getElementById('prog_dept');
-    sel.innerHTML='<option value="">Select Department</option>'+(deps.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
-    document.getElementById('prog_name').value='';
-    new bootstrap.Modal(document.getElementById('progModal')).show();
-}
-async function saveProgramme(){
-    const res=await api('create_programme',{department_id:document.getElementById('prog_dept').value,name:document.getElementById('prog_name').value,type:document.getElementById('prog_type').value,duration_years:document.getElementById('prog_dur').value});
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('progModal'))?.hide();loadProgrammes();}
-}
-async function deleteProgramme(id){Swal.fire({title:'Delete Programme?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444'}).then(async r=>{if(r.isConfirmed){const res=await api('delete_programme',{id});toast(res.status?'success':'error',res.message);if(res.status)loadProgrammes();}});}
+    function openDepartmentModal(data=null){showCrudModal('Department',data,`
+    <div class="row g-3"><div class="col-md-6"><label class="form-label">Name *</label><input type="text" class="form-control" name="name" required value="${data?.name||''}"></div>
+    <div class="col-md-6"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required value="${data?.code||''}"></div>
+    <div class="col-md-6"><label class="form-label">Faculty *</label><select class="form-select" name="faculty_id" required id="deptFacultySelect"><option value="">Select</option></select></div>
+    <div class="col-md-6"><label class="form-label">Head Name</label><input type="text" class="form-control" name="head_name" value="${data?.head_name||''}"></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3">${data?.description||''}</textarea></div></div>`,
+    async fd=>data?await apiCall('update_department',{...fd,id:data.id}):await apiCall('create_department',fd),
+    async()=>{const facs=await apiCall('lookup',{type:'faculties'},'GET');$('#deptFacultySelect').html('<option value="">Select</option>'+(facs.data||[]).map(f=>`<option value="${f.id}" ${data?.faculty_id==f.id?'selected':''}>${f.name}</option>`).join(''))})}
 
-// ===== COURSES =====
-async function loadCourses(){
-    const res=await apiGet('get_courses');
-    if(!res.status)return;
-    document.getElementById('coursesBody').innerHTML=res.data.map(c=>`
-        <tr>
-            <td class="ps-4"><code>${c.code}</code></td>
-            <td class="fw-600">${c.title}</td>
-            <td>${c.department_name}</td>
-            <td>Level ${c.level}</td>
-            <td>${c.credit_units} units</td>
-            <td>${c.semester}</td>
-            <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteCourse(${c.id})"><i class="fas fa-trash"></i></button></td>
-        </tr>`).join('')||'<tr><td colspan="7" class="text-center py-4 text-muted">No courses</td></tr>';
-}
-async function showAddCourse(){
-    const deps=await apiGet('get_departments');
-    const sel=document.getElementById('crs_dept');
-    sel.innerHTML='<option value="">Select Department</option>'+(deps.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
-    new bootstrap.Modal(document.getElementById('courseModal')).show();
-}
-async function loadProgrammesForCourse(deptId){
-    if(!deptId)return;
-    const res=await apiGet('get_programmes',{department_id:deptId});
-    document.getElementById('crs_prog').innerHTML='<option value="">Select Programme</option>'+(res.data||[]).map(p=>`<option value="${p.id}">${p.name} (${p.type})</option>`).join('');
-}
-async function saveCourse(){
-    const res=await api('create_course',{department_id:document.getElementById('crs_dept').value,programme_id:document.getElementById('crs_prog').value,code:document.getElementById('crs_code').value,title:document.getElementById('crs_title').value,level:document.getElementById('crs_level').value,credit_units:document.getElementById('crs_units').value,semester:document.getElementById('crs_sem').value,is_compulsory:document.getElementById('crs_compulsory').checked?1:0});
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('courseModal'))?.hide();loadCourses();}
-}
-async function deleteCourse(id){Swal.fire({title:'Delete Course?',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444'}).then(async r=>{if(r.isConfirmed){const res=await api('delete_course',{id});toast(res.status?'success':'error',res.message);if(res.status)loadCourses();}});}
+    // ============ PROGRAMMES ============
+    async function loadProgrammes(){
+        const d=await apiCall('programmes',{},'GET');
+        let h=`<div class="row g-3 mb-3"><div class="col-md-3"><select class="form-select form-select-sm" id="progTypeFilter" onchange="filterProgrammes()"><option value="">All Types</option><option>Diploma</option><option>ND</option><option>HND</option><option>Degree</option><option>Masters</option></select></div></div>`;
+        h+=`<div class="table-card"><div class="card-header"><span><i class="bi bi-journal-bookmark-fill me-2"></i>Programmes</span><button class="btn btn-primary btn-sm" onclick="openProgrammeModal()"><i class="bi bi-plus-lg me-1"></i>Add Programme</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="progsTable"><thead><tr><th>Code</th><th>Name</th><th>Type</th><th>Duration</th><th>Department</th><th>Faculty</th><th>Students</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#progsTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print']});
+        dt.clear().rows.add(d.data.map(p=>[p.code,p.name,`<span class="badge bg-primary bg-opacity-10 text-primary">${p.type}</span>`,p.duration_years+' years',p.department_name||'-',p.faculty_name||'-',p.student_count||0,`<div class="d-flex gap-1">${actionBtns('programme',p.id)}</div>`])).draw();
+    }
 
-// ===== SESSIONS =====
-async function loadSessions(){
-    const res=await apiGet('get_sessions');
-    if(!res.status)return;
-    document.getElementById('sessionsBody').innerHTML=res.data.map(s=>`
-        <tr>
-            <td class="ps-4 fw-600">${s.name}</td>
-            <td>${s.semester} Semester</td>
-            <td>${s.start_date||'—'}</td>
-            <td>${s.end_date||'—'}</td>
-            <td>${s.is_active?'<span class="badge-active">Active</span>':'<span class="badge-suspended">Inactive</span>'}</td>
-            <td class="text-end pe-4">${!s.is_active?`<button class="btn btn-sm btn-outline-success rounded-pill" onclick="setActiveSession(${s.id})"><i class="fas fa-check me-1"></i>Set Active</button>`:''}</td>
-        </tr>`).join('');
-}
-function showAddSession(){new bootstrap.Modal(document.getElementById('sessionModal')).show();}
-async function saveSession(){
-    const res=await api('create_session',{name:document.getElementById('ses_name').value,semester:document.getElementById('ses_sem').value,start_date:document.getElementById('ses_start').value,end_date:document.getElementById('ses_end').value});
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('sessionModal'))?.hide();loadSessions();}
-}
-async function setActiveSession(id){
-    const res=await api('set_active_session',{id});
-    toast(res.status?'success':'error',res.message);
-    if(res.status)loadSessions();
-}
+    async function filterProgrammes(){const t=$('#progTypeFilter').val();const r=await apiCall('lookup',{type:'programmes',...t?{department_id:''}:{}},'GET');
+    const d=await apiCall('programmes',t?{type:t}:{},'GET');
+    $('#progsTable').DataTable().clear().rows.add(d.data.map(p=>[p.code,p.name,`<span class="badge bg-primary bg-opacity-10 text-primary">${p.type}</span>`,p.duration_years+' years',p.department_name||'-',p.faculty_name||'-',p.student_count||0,`<div class="d-flex gap-1">${actionBtns('programme',p.id)}</div>`])).draw()}
 
-// ===== STAFF =====
-async function loadStaff(){
-    const res=await apiGet('get_staff');
-    if(!res.status)return;
-    document.getElementById('staffBody').innerHTML=res.data.map(s=>`
-        <tr>
-            <td class="ps-4 fw-600">${s.full_name}</td>
-            <td><code>${s.username}</code></td>
-            <td>${s.role}</td>
-            <td>${s.department_name||'—'}</td>
-            <td>${s.phone||'—'}</td>
-            <td><span class="${s.account_status==='Active'?'badge-active':'badge-suspended'}">${s.account_status}</span></td>
-            <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteStaff(${s.id})"><i class="fas fa-trash"></i></button></td>
-        </tr>`).join('')||'<tr><td colspan="7" class="text-center py-4 text-muted">No staff found</td></tr>';
-}
-async function showAddStaff(){
-    await loadFacultiesIntoSelect('');
-    const deps=await apiGet('get_departments');
-    document.getElementById('sf_dept').innerHTML='<option value="">Select Dept (optional)</option>'+(deps.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
-    document.getElementById('staffId').value='';document.getElementById('staffModalTitle').textContent='Add Staff Member';
-    document.getElementById('sf_name').value='';document.getElementById('sf_username').value='';document.getElementById('sf_password').value='';
-    new bootstrap.Modal(document.getElementById('staffModal')).show();
-}
-async function saveStaff(){
-    const id=document.getElementById('staffId').value;
-    const data={full_name:document.getElementById('sf_name').value,staff_id:document.getElementById('sf_staffid').value,username:document.getElementById('sf_username').value,password:document.getElementById('sf_password').value,email:document.getElementById('sf_email').value,phone:document.getElementById('sf_phone').value,role:document.getElementById('sf_role').value,gender:document.getElementById('sf_gender').value,department_id:document.getElementById('sf_dept').value,qualification:document.getElementById('sf_qual').value,specialization:document.getElementById('sf_spec').value,date_joined:document.getElementById('sf_joined').value};
-    const res=await api(id?'update_staff':'create_staff',id?{...data,id}:data);
-    toast(res.status?'success':'error',res.message);
-    if(res.status){bootstrap.Modal.getInstance(document.getElementById('staffModal'))?.hide();loadStaff();}
-}
-async function deleteStaff(id){Swal.fire({title:'Delete Staff?',text:'This removes their account.',icon:'warning',showCancelButton:true,confirmButtonColor:'#ef4444'}).then(async r=>{if(r.isConfirmed){const res=await api('delete_staff',{id});toast(res.status?'success':'error',res.message);if(res.status)loadStaff();}});}
+    function openProgrammeModal(data=null){showCrudModal('Programme',data,`
+    <div class="row g-3"><div class="col-md-6"><label class="form-label">Name *</label><input type="text" class="form-control" name="name" required value="${data?.name||''}"></div>
+    <div class="col-md-6"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required value="${data?.code||''}"></div>
+    <div class="col-md-4"><label class="form-label">Type *</label><select class="form-select" name="type" required><option ${data?.type==='Diploma'?'selected':''}>Diploma</option><option ${data?.type==='ND'?'selected':''}>ND</option><option ${data?.type==='HND'?'selected':''}>HND</option><option ${data?.type==='Degree'?'selected':''}>Degree</option><option ${data?.type==='Masters'?'selected':''}>Masters</option></select></div>
+    <div class="col-md-4"><label class="form-label">Duration (years)</label><input type="number" class="form-control" name="duration_years" min="1" max="10" value="${data?.duration_years||4}"></div>
+    <div class="col-md-4"><label class="form-label">Department *</label><select class="form-select" name="department_id" required id="progDeptSelect"><option value="">Select</option></select></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="3">${data?.description||''}</textarea></div></div>`,
+    async fd=>data?await apiCall('update_programme',{...fd,id:data.id}):await apiCall('create_programme',fd),
+    async()=>{const depts=await apiCall('lookup',{type:'departments'},'GET');$('#progDeptSelect').html('<option value="">Select</option>'+(depts.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join(''));if(data?.department_id)$('#progDeptSelect').val(data.department_id)})}
 
-// ===== USERS =====
-async function loadUsers(){
-    const res=await apiGet('get_system_users');
-    if(!res.status)return;
-    document.getElementById('usersBody').innerHTML=res.data.map(u=>`
-        <tr>
-            <td class="ps-4"><code>${u.username}</code></td>
-            <td>${u.full_name||'—'}</td>
-            <td>${u.role}</td>
-            <td><span class="${u.status==='Active'?'badge-active':'badge-suspended'}">${u.status}</span></td>
-            <td>${u.last_login?new Date(u.last_login).toLocaleString():'Never'}</td>
-            <td class="text-end pe-4">
-                <button class="btn btn-sm btn-outline-${u.status==='Active'?'warning':'success'} rounded-pill" onclick="toggleUser(${u.id},'${u.status==='Active'?'Suspended':'Active'}')">
-                    ${u.status==='Active'?'Suspend':'Activate'}
-                </button>
-            </td>
-        </tr>`).join('');
-}
-async function toggleUser(userId,status){
-    const res=await api('toggle_user_status',{user_id:userId,status});
-    toast(res.status?'success':'error',res.message);
-    if(res.status)loadUsers();
-}
+    // ============ COURSES ============
+    async function loadCourses(){
+        const d=await apiCall('courses',{},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-book me-2"></i>Courses</span><button class="btn btn-primary btn-sm" onclick="openCourseModal()"><i class="bi bi-plus-lg me-1"></i>Add Course</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="coursesTable"><thead><tr><th>Code</th><th>Title</th><th>Department</th><th>Units</th><th>Semester</th><th>Level</th><th>Lecturer</th><th>Prerequisite</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#coursesTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print']});
+        dt.clear().rows.add(d.data.map(c=>[c.code,c.title,c.department_name||'-',c.credit_units,c.semester,c.level,c.lecturer_name||'-',c.prerequisite_title||'-',`<div class="d-flex gap-1">${actionBtns('course',c.id)}</div>`])).draw();
+    }
 
-// ===== AUDIT =====
-async function loadAuditLogs(){
-    const res=await apiGet('get_audit_logs');
-    if(!res.status)return;
-    document.getElementById('auditBody').innerHTML=res.data.map(a=>`
-        <tr>
-            <td class="ps-4">${a.action}</td>
-            <td><code>${a.username||'System'}</code></td>
-            <td>${a.entity||'—'}${a.entity_id?' #'+a.entity_id:''}</td>
-            <td><code style="font-size:.75rem">${a.ip_address||'—'}</code></td>
-            <td style="font-size:.82rem">${new Date(a.created_at).toLocaleString()}</td>
-        </tr>`).join('');
-}
+    function openCourseModal(data=null){showCrudModal('Course',data,`
+    <div class="row g-3"><div class="col-md-4"><label class="form-label">Code *</label><input type="text" class="form-control" name="code" required value="${data?.code||''}"></div>
+    <div class="col-md-8"><label class="form-label">Title *</label><input type="text" class="form-control" name="title" required value="${data?.title||''}"></div>
+    <div class="col-md-6"><label class="form-label">Department *</label><select class="form-select" name="department_id" required id="courseDeptSelect"><option value="">Select</option></select></div>
+    <div class="col-md-3"><label class="form-label">Credit Units</label><input type="number" class="form-control" name="credit_units" min="1" max="12" value="${data?.credit_units||2}"></div>
+    <div class="col-md-3"><label class="form-label">Semester</label><select class="form-select" name="semester"><option ${data?.semester==='First'?'selected':''}>First</option><option ${data?.semester==='Second'?'selected':''}>Second</option><option ${data?.semester==='Both'?'selected':''}>Both</option></select></div>
+    <div class="col-md-3"><label class="form-label">Level</label><select class="form-select" name="level">${[100,200,300,400,500].map(l=>`<option value="${l}" ${data?.level==l?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="col-md-3"><label class="form-label">Lecturer</label><select class="form-select" name="lecturer_id" id="courseLectSelect"><option value="">None</option></select></div>
+    <div class="col-md-3"><label class="form-label">Elective</label><select class="form-select" name="is_elective"><option value="0" ${!data?.is_elective?'selected':''}>No</option><option value="1" ${data?.is_elective?'selected':''}>Yes</option></select></div>
+    <div class="col-12"><label class="form-label">Description</label><textarea class="form-control" name="description" rows="2">${data?.description||''}</textarea></div></div>`,
+    async fd=>data?await apiCall('update_course',{...fd,id:data.id}):await apiCall('create_course',fd),
+    async()=>{const depts=await apiCall('lookup',{type:'departments'},'GET');const lecs=await apiCall('lookup',{type:'lecturers'},'GET');const courses=await apiCall('courses',{},'GET');
+    $('#courseDeptSelect').html('<option value="">Select</option>'+(depts.data||[]).map(d=>`<option value="${d.id}" ${data?.department_id==d.id?'selected':''}>${d.name}</option>`).join(''));
+    $('#courseLectSelect').html('<option value="">None</option>'+(lecs.data||[]).map(l=>`<option value="${l.id}" ${data?.lecturer_id==l.id?'selected':''}>${l.full_name}</option>`).join(''))})}
 
-// ===== SETTINGS =====
-document.getElementById('changePwdForm')?.addEventListener('submit', async function(e){
-    e.preventDefault();
-    const np=document.getElementById('newPwd').value, cp=document.getElementById('confirmPwd').value;
-    if(np!==cp){const a=document.getElementById('pwdAlert');a.className='alert alert-danger';a.textContent='Passwords do not match.';return;}
-    const res=await api('change_password',{current_password:document.getElementById('currentPwd').value,new_password:np});
-    const a=document.getElementById('pwdAlert');
-    a.className='alert '+(res.status?'alert-success':'alert-danger');
-    a.textContent=res.message;
-});
+    // ============ STAFF ============
+    async function loadStaff(){
+        const d=await apiCall('staff',{},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-person-badge me-2"></i>Staff</span><button class="btn btn-primary btn-sm" onclick="openStaffModal()"><i class="bi bi-plus-lg me-1"></i>Add Staff</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="staffTable"><thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Phone</th><th>Role</th><th>Courses</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#staffTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print']});
+        dt.clear().rows.add(d.data.map(s=>[s.full_name,s.email,s.username,s.phone||'-',`<span class="badge bg-primary bg-opacity-10 text-primary">${s.role}</span>`,s.course_count||0,`<div class="d-flex gap-1">${actionBtns('staff',s.id)}</div>`])).draw();
+    }
 
-// ===== LOGOUT =====
-async function doLogout(){
-    Swal.fire({title:'Logout?',icon:'question',showCancelButton:true,confirmButtonText:'Logout'}).then(async r=>{
-        if(r.isConfirmed){await api('logout');window.location.href='index.php';}
-    });
-}
+    function openStaffModal(data=null){showCrudModal('Staff',data,`
+    <div class="row g-3"><div class="col-md-6"><label class="form-label">Full Name *</label><input type="text" class="form-control" name="full_name" required value="${data?.full_name||''}"></div>
+    <div class="col-md-6"><label class="form-label">Email *</label><input type="email" class="form-control" name="email" required value="${data?.email||''}"></div>
+    <div class="col-md-6"><label class="form-label">Username *</label><input type="text" class="form-control" name="username" required value="${data?.username||''}"></div>
+    <div class="col-md-6"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone" value="${data?.phone||''}"></div>
+    <div class="col-md-6"><label class="form-label">Role *</label><select class="form-select" name="role" required><option value="admin" ${data?.role==='admin'?'selected':''}>Admin</option><option value="lecturer" ${data?.role==='lecturer'||!data?'selected':''}>Lecturer</option></select></div>
+    <div class="col-md-6"><label class="form-label">${data?'':'Password'}</label><input type="text" class="form-control" name="password" placeholder="Default: Staff@123"></div></div>`,
+    async fd=>data?await apiCall('update_staff',{...fd,id:data.id}):await apiCall('create_staff',fd))}
 
-// ===== HELPER: Load selects =====
-async function loadFacultiesIntoSelect(selId, selectedVal=''){
-    if(!selId)return;
-    const res=await apiGet('get_faculties');
-    const sel=document.getElementById(selId);
-    if(!sel)return;
-    sel.innerHTML='<option value="">Select Faculty</option>'+(res.data||[]).map(f=>`<option value="${f.id}"${f.id==selectedVal?' selected':''}>${f.name}</option>`).join('');
-}
-async function loadProgrammesByFaculty(facultyId, deptVal='', progVal=''){
-    if(!facultyId)return;
-    const deps=await apiGet('get_departments',{faculty_id:facultyId});
-    const dSel=document.getElementById('s_dept');
-    dSel.innerHTML='<option value="">Select Dept</option>'+(deps.data||[]).map(d=>`<option value="${d.id}"${d.id==deptVal?' selected':''}>${d.name}</option>`).join('');
-    if(deptVal) await loadProgrammesForStudent(deptVal, progVal);
-    dSel.onchange=()=>loadProgrammesForStudent(dSel.value);
-}
-async function loadProgrammesForStudent(deptId, progVal=''){
-    const progs=await apiGet('get_programmes',{department_id:deptId});
-    document.getElementById('s_prog').innerHTML='<option value="">Select Programme</option>'+(progs.data||[]).map(p=>`<option value="${p.id}"${p.id==progVal?' selected':''}>${p.name} (${p.type})</option>`).join('');
-}
-async function loadSessionsIntoSelect(selId, selectedVal=''){
-    const res=await apiGet('get_sessions');
-    const sel=document.getElementById(selId);
-    if(!sel)return;
-    sel.innerHTML='<option value="">Select Session</option>'+(res.data||[]).map(s=>`<option value="${s.id}"${s.id==selectedVal?' selected':''}>${s.name} - ${s.semester}</option>`).join('');
-}
+    // ============ SESSIONS ============
+    async function loadSessions(){
+        const d=await apiCall('sessions',{},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-calendar-event me-2"></i>Academic Sessions</span><button class="btn btn-primary btn-sm" onclick="openSessionModal()"><i class="bi bi-plus-lg me-1"></i>Create Session</button></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="sessionsTable"><thead><tr><th>Name</th><th>Semester</th><th>Start</th><th>End</th><th>Status</th><th>Students</th><th>Actions</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#sessionsTable').DataTable({responsive:true,dom:'Bfrtip',buttons:['csv','print']});
+        dt.clear().rows.add(d.data.map(s=>{const statusClass=s.is_current?'status-active':s.status==='completed'?'status-completed':'status-upcoming';
+        return[s.name,s.semester,s.start_date||'-',s.end_date||'-',`<span class="badge badge-status ${statusClass}">${s.is_current?'Active':s.status}</span>`,s.student_count||0,`<div class="d-flex gap-1">${s.is_current?'':`<button class="btn btn-action btn-outline-success" onclick="activateSession(${s.id})" title="Activate"><i class="bi bi-lightning"></i></button>`}</div>`]})).draw();
+    }
 
-// ===== DEPT FILTER POPULATION =====
-async function populateFilterDept(){
-    const res=await apiGet('get_departments');
-    const sel=document.getElementById('filterDept');
-    if(sel&&res.data) sel.innerHTML='<option value="">All Departments</option>'+(res.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
-}
+    function openSessionModal(data=null){showCrudModal('Session',data,`
+    <div class="row g-3"><div class="col-md-6"><label class="form-label">Session Name *</label><input type="text" class="form-control" name="name" required value="${data?.name||''}" placeholder="e.g. 2024/2025 First Semester"></div>
+    <div class="col-md-6"><label class="form-label">Semester</label><select class="form-select" name="semester"><option ${data?.semester==='First'?'selected':''}>First</option><option ${data?.semester==='Second'?'selected':''}>Second</option></select></div>
+    <div class="col-md-6"><label class="form-label">Start Date</label><input type="date" class="form-control" name="start_date" value="${data?.start_date||''}"></div>
+    <div class="col-md-6"><label class="form-label">End Date</label><input type="date" class="form-control" name="end_date" value="${data?.end_date||''}"></div></div>`,
+    async fd=>await apiCall('create_session',fd))}
 
-// ===== INIT =====
-populateFilterDept();
-loadDashboard();
-</script>
+    async function activateSession(id){Swal.fire({title:'Activate this session?',text:'The current active session will be deactivated.',icon:'question',showCancelButton:true,confirmButtonText:'Activate'}).then(async r=>{if(r.isConfirmed){const res=await apiCall('activate_session',{id});if(res.success){Swal.fire({icon:'success',title:'Session Activated!',timer:1500,showConfirmButton:false});loadSessions()}else Swal.fire('Error',res.error,'error')}})}
+
+    // ============ AUDIT LOG ============
+    async function loadAudit(){
+        const d=await apiCall('audit_log',{},'GET');
+        let h=`<div class="table-card"><div class="card-header"><span><i class="bi bi-clock-history me-2"></i>Audit Log</span></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0" id="auditTable"><thead><tr><th>Date</th><th>User</th><th>Action</th><th>Details</th><th>IP Address</th></tr></thead><tbody></tbody></table></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+        const dt=$('#auditTable').DataTable({responsive:true,dom:'Bfrtip',buttons:[{extend:'csv',className:'btn btn-sm btn-outline-primary'},{extend:'print',className:'btn btn-sm btn-outline-primary'}],pageLength:25,order:[[0,'desc']]});
+        dt.clear().rows.add(d.data.map(a=>[a.created_at,a.user_name||'-',`<span class="badge bg-primary bg-opacity-10 text-primary">${a.action}</span>`,(a.details||'').substring(0,80),a.ip_address||'-'])).draw();
+    }
+
+    // ============ SETTINGS ============
+    async function loadSettings(){
+        const d=await apiCall('settings',{},'GET');const s=d.data||{};
+        let h=`<div class="row g-4"><div class="col-lg-6"><div class="card border-0 shadow-sm rounded-16" style="border-radius:16px"><div class="card-header bg-transparent border-bottom"><h6 class="mb-0"><i class="bi bi-building me-2"></i>Institution Information</h6></div><div class="card-body">
+        <form id="institutionForm"><div class="mb-3"><label class="form-label">Institution Name</label><input type="text" class="form-control" name="institution_name" value="${s.institution_name||''}"></div>
+        <div class="mb-3"><label class="form-label">Motto</label><input type="text" class="form-control" name="institution_motto" value="${s.institution_motto||''}"></div>
+        <div class="mb-3"><label class="form-label">Email</label><input type="email" class="form-control" name="institution_email" value="${s.institution_email||''}"></div>
+        <div class="mb-3"><label class="form-label">Phone</label><input type="text" class="form-control" name="institution_phone" value="${s.institution_phone||''}"></div>
+        <div class="mb-3"><label class="form-label">Website</label><input type="url" class="form-control" name="institution_website" value="${s.institution_website||''}"></div>
+        <div class="mb-3"><label class="form-label">Address</label><textarea class="form-control" name="institution_address" rows="2">${s.institution_address||''}</textarea></div>
+        <button type="button" class="btn btn-primary" onclick="saveSettings('institution')"><i class="bi bi-check-lg me-1"></i>Save Institution Info</button></form></div></div></div>`;
+        h+=`<div class="col-lg-6"><div class="card border-0 shadow-sm" style="border-radius:16px"><div class="card-header bg-transparent border-bottom"><h6 class="mb-0"><i class="bi bi-gear me-2"></i>System Settings</h6></div><div class="card-body">
+        <form id="sysForm"><div class="mb-3"><label class="form-label">Session Prefix</label><input type="text" class="form-control" name="session_prefix" value="${s.session_prefix||'SAZUG'}"></div>
+        <div class="mb-3"><label class="form-label">Academic Year Format</label><input type="text" class="form-control" name="academic_year_format" value="${s.academic_year_format||'%Y/%Y'}"></div>
+        <div class="mb-3"><label class="form-label">Currency Symbol</label><input type="text" class="form-control" name="currency_symbol" value="${s.currency_symbol||'₦'}"></div>
+        <div class="mb-3"><label class="form-label">Max Upload Size (MB)</label><input type="number" class="form-control" name="max_upload_size_mb" min="1" max="50" value="${s.max_upload_size_mb||5}"></div>
+        <div class="mb-3"><label class="form-label">Allowed File Types</label><input type="text" class="form-control" name="allowed_file_types" value="${s.allowed_file_types||'pdf,jpg,jpeg,png,doc,docx'}"></div>
+        <div class="mb-3 form-check form-switch"><input class="form-check-input" type="checkbox" name="enable_certificate" id="enableCert" ${s.enable_certificate?'checked':''}><label class="form-check-label" for="enableCert">Enable Certificate Generation</label></div>
+        <div class="mb-3 form-check form-switch"><input class="form-check-input" type="checkbox" name="enable_document_upload" id="enableDocs" ${s.enable_document_upload?'checked':''}><label class="form-check-label" for="enableDocs">Enable Document Upload</label></div>
+        <button type="button" class="btn btn-primary" onclick="saveSettings('system')"><i class="bi bi-check-lg me-1"></i>Save System Settings</button></form></div></div></div></div>`;
+        document.getElementById('pageContent').innerHTML=h;
+    }
+
+    async function saveSettings(type){const fd={};if(type==='institution'){document.querySelectorAll('#institutionForm [name]').forEach(e=>fd[e.name]=e.value);const r=await apiCall('update_institution',fd)}
+    else{document.querySelectorAll('#sysForm [name]').forEach(e=>fd[e.name]=e.type==='checkbox'?e.checked?1:0:e.value);const r=await apiCall('update_settings',fd)}
+    if(r&&r.success)Swal.fire({icon:'success',title:'Saved!',timer:1000,showConfirmButton:false});else Swal.fire('Error',r?.error||'Failed','error')}
+    </script>
 </body>
 </html>

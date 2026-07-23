@@ -1,649 +1,526 @@
 <?php
-/**
- * SAZUG Student Record Management System - Public Enterprise Portal
- * Handles Premium Landing Page, Secure Authentication, and Anti-Forgery Verification.
- */
 session_start();
-
-// Redirect if already logged in
-if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
-    if (in_array($_SESSION['role'], ['Super Administrator', 'Administrator', 'Registrar', 'Department Officer'])) {
-        header("Location: admin_spa.php");
-        exit;
-    } elseif ($_SESSION['role'] === 'Lecturer') {
-        header("Location: lecturer_spa.php");
-        exit;
-    } else {
-        header("Location: student_spa.php");
-        exit;
-    }
-}
-
-// Database Connection strictly for Public QR Verification
-$verificationData = null;
-$verificationError = null;
-
-if (isset($_GET['verify']) && !empty($_GET['verify'])) {
-    $certNumber = trim($_GET['verify']);
-    $host = getenv('DB_HOST') ?: 'localhost';
-    $db   = getenv('DB_NAME') ?: 'sazug_srms';
-    $user = getenv('DB_USER') ?: 'root';
-    $pass = getenv('DB_PASS') ?: '';
-    $port = getenv('DB_PORT') ?: '12417';
-    
-    try {
-        $pdo = new PDO("mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4;sslmode=require", $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $stmt = $pdo->prepare("
-            SELECT c.certificate_number, c.issue_date, s.full_name, s.matric_number, s.graduation_date, 
-                   p.name as programme, d.name as department, f.name as faculty 
-            FROM certificates c
-            JOIN students s ON c.student_id = s.id
-            JOIN programmes p ON s.programme_id = p.id
-            JOIN departments d ON s.department_id = d.id
-            JOIN faculties f ON s.faculty_id = f.id
-            WHERE c.certificate_number = :cert
-        ");
-        $stmt->execute(['cert' => $certNumber]);
-        $verificationData = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$verificationData) {
-            $verificationError = "The provided Certificate Identification Number could not be authenticated against the SAZUG encrypted registry.";
-        }
-    } catch (PDOException $e) {
-        $verificationError = "Secure verification services are temporarily offline. Please try again shortly.";
-    }
-}
+$page = $_GET['page'] ?? 'home';
 ?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAZUG - Enterprise Student Record Management System</title>
+    <title>SAZUG Student Record Management System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet">
     <style>
-        :root {
-            --brand-dark: #0B1121;
-            --brand-primary: #3B82F6;
-            --brand-primary-hover: #2563EB;
-            --brand-accent: #8B5CF6;
-            --bg-body: #FAFAFA;
-            --text-main: #1F2937;
-            --text-muted: #6B7280;
-            --glass-bg: rgba(255, 255, 255, 0.7);
-            --glass-border: rgba(255, 255, 255, 0.4);
-            --shadow-soft: 0 20px 40px -15px rgba(0,0,0,0.05);
-            --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.3);
-        }
+        :root{--primary:#1a365d;--primary-light:#2a4a7f;--primary-dark:#0f2440;--gold:#c9973f;--gold-light:#daa84e;--gold-dark:#a87d2e;--white:#fff;--off-white:#f8f9fa;--dark-bg:#0d1b2a;--text:#333;--text-light:#666;--shadow:0 4px 20px rgba(0,0,0,.1)}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',sans-serif;color:var(--text);overflow-x:hidden}
+        h1,h2,h3,h4,h5{font-family:'Playfair Display',serif}
+        [data-bs-theme="dark"] body,[data-bs-theme="dark"]{background:var(--dark-bg);color:#e0e0e0}
+        [data-bs-theme="dark"] .card,[data-bs-theme="dark"] .navbar{background:var(--primary-dark)!important;border-color:rgba(255,255,255,.1)!important}
+        [data-bs-theme="dark"] .text-dark{color:#e0e0e0!important}
+        [data-bs-theme="dark"] .bg-light{background:var(--dark-bg)!important}
+        [data-bs-theme="dark"] .offcanvas{background:var(--primary-dark)!important}
+        [data-bs-theme="dark"] .form-control,[data-bs-theme="dark"] .form-select{background:#1a2a3d;color:#e0e0e0;border-color:rgba(255,255,255,.15)}
 
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: var(--bg-body);
-            color: var(--text-main);
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
+        /* Navbar */
+        .navbar-custom{background:var(--primary)!important;backdrop-filter:blur(20px);box-shadow:0 2px 20px rgba(0,0,0,.15);transition:all .3s}
+        .navbar-custom.scrolled{background:rgba(26,54,93,.95)!important;padding:.3rem 0}
+        .navbar-brand-custom{font-family:'Playfair Display',serif;font-size:1.5rem;color:var(--gold)!important;font-weight:700;letter-spacing:1px}
+        .nav-link-custom{color:rgba(255,255,255,.85)!important;font-weight:500;transition:all .3s;padding:.5rem 1rem!important;border-radius:8px}
+        .nav-link-custom:hover,.nav-link-custom.active{color:var(--gold)!important;background:rgba(201,151,63,.1)}
+        .theme-toggle{width:40px;height:40px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:transparent;color:var(--gold);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .3s}
+        .theme-toggle:hover{background:rgba(201,151,63,.15);border-color:var(--gold)}
 
-        /* 1. ULTRA-SLEEK NAVBAR */
-        .navbar-glass {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-bottom: 1px solid var(--glass-border);
-            padding: 15px 0;
-            transition: all 0.3s ease;
-        }
-        .navbar-brand {
-            font-weight: 800;
-            letter-spacing: -0.5px;
-            color: var(--brand-dark) !important;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .brand-icon {
-            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            font-size: 1.5rem;
-        }
-        .nav-link {
-            color: var(--text-muted) !important;
-            font-weight: 500;
-            font-size: 0.95rem;
-            margin: 0 10px;
-            transition: color 0.2s;
-        }
-        .nav-link:hover { color: var(--brand-primary) !important; }
-        
-        .btn-premium {
-            background: var(--brand-dark);
-            color: white !important;
-            border-radius: 8px;
-            padding: 10px 24px;
-            font-weight: 600;
-            font-size: 0.95rem;
-            border: 1px solid var(--brand-dark);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .btn-premium:hover {
-            background: transparent;
-            color: var(--brand-dark) !important;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-soft);
-        }
+        /* Hero */
+        .hero{position:relative;min-height:100vh;background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 50%,var(--primary-light) 100%);display:flex;align-items:center;overflow:hidden}
+        .hero::before{content:'';position:absolute;top:0;left:0;right:0;bottom:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9973f' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+        #particles-canvas{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+        .hero-content{position:relative;z-index:2}
+        .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(201,151,63,.15);border:1px solid rgba(201,151,63,.3);color:var(--gold);padding:.5rem 1.2rem;border-radius:50px;font-size:.85rem;font-weight:600;margin-bottom:1.5rem;animation:fadeInUp .8s}
+        .hero-title{font-size:clamp(2.5rem,6vw,4.5rem);color:var(--white);font-weight:700;line-height:1.15;margin-bottom:1.5rem;animation:fadeInUp .8s .2s both}
+        .hero-title span{color:var(--gold)}
+        .hero-subtitle{font-size:clamp(1rem,2vw,1.25rem);color:rgba(255,255,255,.75);max-width:600px;line-height:1.8;margin-bottom:2.5rem;animation:fadeInUp .8s .4s both}
+        .hero-buttons{display:flex;gap:1rem;flex-wrap:wrap;animation:fadeInUp .8s .6s both}
+        .btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-light));color:var(--primary-dark);font-weight:700;padding:.85rem 2rem;border-radius:12px;border:none;font-size:1rem;transition:all .3s;box-shadow:0 4px 15px rgba(201,151,63,.3)}
+        .btn-gold:hover{transform:translateY(-3px);box-shadow:0 8px 25px rgba(201,151,63,.4);color:var(--primary-dark)}
+        .btn-outline-light-custom{border:2px solid rgba(255,255,255,.3);color:var(--white);padding:.85rem 2rem;border-radius:12px;background:transparent;font-weight:600;transition:all .3s}
+        .btn-outline-light-custom:hover{border-color:var(--gold);color:var(--gold);background:rgba(201,151,63,.05)}
+        .hero-stats{margin-top:4rem;animation:fadeInUp .8s .8s both}
+        .stat-item{text-align:center;padding:1.5rem}
+        .stat-number{font-family:'Playfair Display',serif;font-size:2.5rem;font-weight:700;color:var(--gold)}
+        .stat-label{color:rgba(255,255,255,.7);font-size:.9rem;font-weight:500;margin-top:.3rem}
+        .hero-shape{position:absolute;border-radius:50%;background:rgba(201,151,63,.08)}
+        .hero-shape-1{width:400px;height:400px;top:-100px;right:-100px}
+        .hero-shape-2{width:250px;height:250px;bottom:50px;left:-80px}
 
-        /* 2. HERO SECTION (Mesh Gradient & Typography) */
-        .hero-section {
-            padding: 180px 0 120px;
-            position: relative;
-            background-color: #ffffff;
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
-                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
-            border-bottom: 1px solid rgba(0,0,0,0.03);
-            overflow: hidden;
-        }
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 14px;
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--brand-primary);
-            border-radius: 20px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 24px;
-            border: 1px solid rgba(59, 130, 246, 0.2);
-        }
-        .hero-title {
-            font-size: 4.5rem;
-            font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -2px;
-            color: var(--brand-dark);
-            margin-bottom: 24px;
-        }
-        .text-gradient {
-            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .hero-subtitle {
-            font-size: 1.25rem;
-            color: var(--text-muted);
-            line-height: 1.7;
-            margin-bottom: 40px;
-            max-width: 600px;
-        }
-        
-        /* 3. HERO VISUAL (CSS Floating Cards) */
-        .hero-visual-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-            perspective: 1000px;
-        }
-        .floating-card {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            border-radius: 16px;
-            padding: 24px;
-            box-shadow: 0 30px 60px -20px rgba(0,0,0,0.15);
-            animation: float 6s ease-in-out infinite;
-        }
-        .card-1 { top: 10%; left: 10%; width: 280px; z-index: 3; animation-delay: 0s; transform: rotate(-5deg); }
-        .card-2 { top: 40%; right: 5%; width: 250px; z-index: 2; animation-delay: -2s; transform: rotate(3deg); background: var(--brand-dark); color: white; border-color: rgba(255,255,255,0.1); }
-        .card-3 { bottom: 0; left: 20%; width: 300px; z-index: 4; animation-delay: -4s; transform: rotate(2deg); }
-        
-        @keyframes float {
-            0% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
-            50% { transform: translateY(-20px) rotate(var(--rot, 0deg)); }
-            100% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
-        }
+        /* Carousel */
+        .carousel-section{padding:5rem 0;background:var(--off-white)}
+        [data-bs-theme="dark"] .carousel-section{background:var(--primary-dark)}
+        .section-header{text-align:center;margin-bottom:3rem}
+        .section-title{font-size:2.2rem;color:var(--primary);font-weight:700;margin-bottom:.5rem}
+        [data-bs-theme="dark"] .section-title{color:var(--gold)}
+        .section-line{width:80px;height:3px;background:linear-gradient(90deg,var(--gold),var(--primary));margin:0 auto 1rem;border-radius:3px}
+        .section-subtitle{color:var(--text-light);font-size:1.05rem;max-width:600px;margin:0 auto}
+        .feature-card{background:var(--white);border-radius:16px;padding:2rem;height:100%;border:none;transition:all .4s;box-shadow:0 4px 15px rgba(0,0,0,.06);position:relative;overflow:hidden}
+        .feature-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg,var(--gold),var(--primary));transform:scaleX(0);transition:transform .4s;transform-origin:left}
+        .feature-card:hover{transform:translateY(-8px);box-shadow:0 20px 40px rgba(0,0,0,.12)}
+        .feature-card:hover::before{transform:scaleX(1)}
+        .feature-icon{width:64px;height:64px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:1.2rem;color:var(--white);background:linear-gradient(135deg,var(--primary),var(--primary-light))}
+        .feature-card h5{color:var(--primary);font-weight:700;margin-bottom:.6rem;font-family:'Inter',sans-serif}
+        [data-bs-theme="dark"] .feature-card h5{color:var(--gold)}
+        .feature-card p{color:var(--text-light);font-size:.92rem;line-height:1.6;margin:0}
+        .carousel-indicators button{width:12px!important;height:12px!important;border-radius:50%!important;background:var(--text-light)!important;opacity:.3!important;border:none!important;transition:all .3s}
+        .carousel-indicators button.active{opacity:1!important;background:var(--gold)!important;width:30px!important;border-radius:6px!important}
 
-        /* 4. BENTO BOX FEATURES */
-        .bento-section {
-            padding: 100px 0;
-            background: var(--bg-body);
-        }
-        .bento-card {
-            background: #ffffff;
-            border-radius: 24px;
-            padding: 40px;
-            height: 100%;
-            border: 1px solid rgba(0,0,0,0.04);
-            box-shadow: var(--shadow-soft);
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .bento-card:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 30px 60px -15px rgba(0,0,0,0.08);
-            border-color: rgba(59, 130, 246, 0.2);
-        }
-        .icon-box {
-            width: 56px;
-            height: 56px;
-            background: rgba(59, 130, 246, 0.08);
-            color: var(--brand-primary);
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 24px;
-        }
-        .icon-box.dark { background: var(--brand-dark); color: white; }
-        .icon-box.purple { background: rgba(139, 92, 246, 0.1); color: var(--brand-accent); }
-
-        /* 5. VERIFICATION SECTION */
-        .verify-section {
-            padding: 120px 0;
-            background: var(--brand-dark);
-            color: white;
-            position: relative;
-            overflow: hidden;
-        }
-        .verify-section::before {
-            content: '';
-            position: absolute;
-            top: -50%; left: -50%; width: 200%; height: 200%;
-            background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(0,0,0,0) 50%);
-            pointer-events: none;
-        }
-        .search-bar-wrapper {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            padding: 8px;
-            display: flex;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-            max-width: 700px;
-            margin: 0 auto;
-            transition: border-color 0.3s;
-        }
-        .search-bar-wrapper:focus-within { border-color: var(--brand-primary); box-shadow: var(--shadow-glow); }
-        .search-input {
-            background: transparent;
-            border: none;
-            color: white;
-            padding: 20px 24px;
-            font-size: 1.1rem;
-            width: 100%;
-        }
-        .search-input:focus { outline: none; box-shadow: none; }
-        .search-input::placeholder { color: rgba(255,255,255,0.4); }
-        .btn-search {
-            background: var(--brand-primary);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            padding: 0 32px;
-            font-weight: 600;
-            transition: background 0.3s;
-        }
-        .btn-search:hover { background: var(--brand-primary-hover); }
-
-        /* 6. MODAL STYLING */
-        .modal-backdrop.show { opacity: 0.6; backdrop-filter: blur(5px); }
-        .custom-modal .modal-content {
-            border: none;
-            border-radius: 24px;
-            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.25);
-            overflow: hidden;
-        }
-        .modal-left-pane { background: var(--brand-dark); color: white; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
-        .form-floating > .form-control { border-radius: 12px; border: 1px solid #E5E7EB; }
-        .form-floating > .form-control:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+        /* Features Grid */
+        .features-grid{padding:5rem 0;background:var(--white)}
+        [data-bs-theme="dark"] .features-grid{background:var(--dark-bg)}
+        .icon-box{width:80px;height:80px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 1.5rem;transition:all .3s}
+        .icon-box-primary{background:rgba(26,54,93,.1);color:var(--primary)}
+        .icon-box-gold{background:rgba(201,151,63,.1);color:var(--gold)}
+        [data-bs-theme="dark"] .icon-box-primary{background:rgba(201,151,63,.15);color:var(--gold)}
 
         /* Footer */
-        .footer { padding: 60px 0; border-top: 1px solid rgba(0,0,0,0.05); background: #ffffff; }
+        .footer{background:var(--primary-dark);color:rgba(255,255,255,.7);padding:4rem 0 2rem}
+        .footer h5{color:var(--gold);font-family:'Inter',sans-serif;font-weight:700;margin-bottom:1.2rem;font-size:1.1rem}
+        .footer a{color:rgba(255,255,255,.6);text-decoration:none;transition:all .3s;font-size:.9rem}
+        .footer a:hover{color:var(--gold);padding-left:5px}
+        .footer-bottom{border-top:1px solid rgba(255,255,255,.1);margin-top:3rem;padding-top:1.5rem;text-align:center;font-size:.85rem}
+        .footer-brand{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--gold);font-weight:700}
+
+        /* Modals */
+        .modal-content{border:none;border-radius:16px;overflow:hidden}
+        .modal-header{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:var(--white);border:none;padding:1.5rem 2rem}
+        .modal-header .btn-close{filter:brightness(0) invert(1)}
+        .modal-body{padding:2rem}
+        .form-floating-custom{position:relative;margin-bottom:1.2rem}
+        .form-floating-custom .form-control{border:2px solid #e0e0e0;border-radius:12px;padding:1rem 1rem .5rem;font-size:.95rem;transition:all .3s}
+        .form-floating-custom .form-control:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,151,63,.15)}
+        .form-floating-custom label{position:absolute;top:.5rem;left:1rem;font-size:.75rem;color:var(--text-light);font-weight:500}
+
+        /* Verify Page */
+        .verify-section{min-height:100vh;display:flex;align-items:center;background:linear-gradient(135deg,var(--primary-dark),var(--primary));padding:3rem 0}
+        .verify-card{background:var(--white);border-radius:20px;padding:3rem;max-width:550px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.15)}
+        .verify-icon{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-light));display:flex;align-items:center;justify-content:center;margin:0 auto 1.5rem;font-size:2rem;color:var(--white)}
+
+        /* Reset Page */
+        .reset-section{min-height:100vh;display:flex;align-items:center;background:linear-gradient(135deg,var(--primary-dark),var(--primary));padding:3rem 0}
+
+        /* Animations */
+        @keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+        .animate-on-scroll{opacity:0;transform:translateY(30px);transition:all .8s}
+        .animate-on-scroll.visible{opacity:1;transform:translateY(0)}
+
+        /* Responsive */
+        @media(max-width:768px){
+            .hero-stats .row>div{border-bottom:1px solid rgba(255,255,255,.1)}
+            .hero-buttons{flex-direction:column}
+            .hero-buttons .btn{width:100%}
+            .stat-number{font-size:2rem}
+        }
     </style>
 </head>
 <body>
-
-<nav class="navbar navbar-expand-lg navbar-glass fixed-top">
-    <div class="container">
-        <a class="navbar-brand" href="index.php">
-            <i class="fas fa-layer-group brand-icon"></i>
-            <span>SAZUG <span style="font-weight:400; color:var(--text-muted)">Enterprise</span></span>
-        </a>
-        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navItems">
-            <i class="fas fa-bars"></i>
-        </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navItems">
-            <ul class="navbar-nav align-items-center gap-2">
-                <li class="nav-item"><a class="nav-link" href="#platform">Platform</a></li>
-                <li class="nav-item"><a class="nav-link" href="#verify">Verify Credential</a></li>
-                <li class="nav-item ms-lg-3">
-                    <button class="btn btn-premium" data-bs-toggle="modal" data-bs-target="#loginModal">
-                        Access Portal <i class="fas fa-arrow-right ms-2" style="font-size: 0.8em;"></i>
-                    </button>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-
-<?php if (isset($_GET['verify'])): ?>
-    <div class="container min-vh-100 d-flex align-items-center justify-content-center pt-5">
-        <div class="card border-0 w-100 mt-5" style="max-width: 700px; border-radius: 24px; box-shadow: var(--shadow-soft);">
-            <div class="card-header bg-white border-0 text-center pt-5 pb-3">
-                <div class="mb-3">
-                    <?php if ($verificationData): ?>
-                        <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-circle" style="width: 80px; height: 80px;">
-                            <i class="fas fa-shield-check fa-3x"></i>
-                        </div>
-                        <h2 class="fw-bold mt-4 text-dark">Verified & Authentic</h2>
-                        <p class="text-muted">This certificate record is permanently logged in the institutional registry.</p>
-                    <?php else: ?>
-                        <div class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-danger rounded-circle" style="width: 80px; height: 80px;">
-                            <i class="fas fa-shield-xmark fa-3x"></i>
-                        </div>
-                        <h2 class="fw-bold mt-4 text-dark">Record Not Found</h2>
-                        <p class="text-danger"><?= htmlspecialchars($verificationError) ?></p>
-                    <?php endif; ?>
-                </div>
-            </div>
-            
-            <?php if ($verificationData): ?>
-            <div class="card-body px-5 pb-5">
-                <div class="bg-light rounded-4 p-4 mb-4 border" style="border-color: rgba(0,0,0,0.05) !important;">
-                    <div class="row g-4">
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Graduate Name</span>
-                            <span class="fs-5 fw-bold text-dark"><?= htmlspecialchars($verificationData['full_name']) ?></span>
-                        </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Matriculation Number</span>
-                            <span class="fs-6 fw-semibold font-monospace bg-white border px-2 py-1 rounded"><?= htmlspecialchars($verificationData['matric_number']) ?></span>
-                        </div>
-                        <div class="col-12 border-top pt-3 mt-3"></div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Award</span>
-                            <span class="fw-semibold text-dark"><?= htmlspecialchars($verificationData['programme']) ?></span>
-                        </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Graduation Date</span>
-                            <span class="fw-semibold text-dark"><?= date('F j, Y', strtotime($verificationData['graduation_date'])) ?></span>
-                        </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Department</span>
-                            <span class="text-dark"><?= htmlspecialchars($verificationData['department']) ?></span>
-                        </div>
-                        <div class="col-sm-6">
-                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Faculty</span>
-                            <span class="text-dark"><?= htmlspecialchars($verificationData['faculty']) ?></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="text-center">
-                    <span class="badge bg-dark bg-opacity-10 text-dark border px-3 py-2 rounded-pill font-monospace">
-                        <i class="fas fa-fingerprint me-2"></i> ID: <?= htmlspecialchars($verificationData['certificate_number']) ?>
-                    </span>
-                </div>
-            </div>
-            <?php endif; ?>
-            <div class="card-footer bg-white border-top-0 text-center pb-5">
-                <a href="index.php" class="btn btn-light border px-4 py-2 rounded-pill fw-semibold text-muted hover-dark"><i class="fas fa-arrow-left me-2"></i> Back to Gateway</a>
-            </div>
-        </div>
-    </div>
-
-<?php else: ?>
-    <section class="hero-section">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top" id="mainNav">
         <div class="container">
-            <div class="row align-items-center g-5">
-                <div class="col-lg-6">
+            <a class="navbar-brand navbar-brand-custom" href="?page=home">
+                <i class="bi bi-mortarboard-fill me-2"></i>SAZUG SRMS
+            </a>
+            <div class="d-flex align-items-center gap-2 order-lg-last">
+                <button class="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">
+                    <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+                </button>
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileMenu">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+            <div class="collapse navbar-collapse" id="navbarContent">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item"><a class="nav-link nav-link-custom active" href="?page=home">Home</a></li>
+                    <li class="nav-item"><a class="nav-link nav-link-custom" href="?page=home#features">Features</a></li>
+                    <li class="nav-item"><a class="nav-link nav-link-custom" href="?page=verify">Verify Certificate</a></li>
+                    <li class="nav-item"><a class="nav-link nav-link-custom" href="?page=home#contact">Contact</a></li>
+                </ul>
+                <button class="btn btn-gold px-4" onclick="openLoginModal()">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Offcanvas -->
+    <div class="offcanvas offcanvas-end" id="mobileMenu" style="background:var(--primary)">
+        <div class="offcanvas-header border-0">
+            <h5 class="offcanvas-title text-gold" style="color:var(--gold)">
+                <i class="bi bi-mortarboard-fill me-2"></i>SAZUG SRMS
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+        </div>
+        <div class="offcanvas-body">
+            <ul class="navbar-nav">
+                <li class="nav-item"><a class="nav-link text-white py-2" href="?page=home" data-bs-dismiss="offcanvas">Home</a></li>
+                <li class="nav-item"><a class="nav-link text-white py-2" href="?page=home#features" data-bs-dismiss="offcanvas">Features</a></li>
+                <li class="nav-item"><a class="nav-link text-white py-2" href="?page=verify" data-bs-dismiss="offcanvas">Verify Certificate</a></li>
+                <li class="nav-item"><a class="nav-link text-white py-2" href="?page=home#contact" data-bs-dismiss="offcanvas">Contact</a></li>
+            </ul>
+            <hr class="border-secondary my-3">
+            <button class="btn btn-gold w-100" onclick="openLoginModal();bootstrap.Offcanvas.getInstance(document.getElementById('mobileMenu')).hide()">
+                <i class="bi bi-box-arrow-in-right me-2"></i>Login
+            </button>
+        </div>
+    </div>
+
+    <?php if ($page === 'verify'): ?>
+    <!-- Certificate Verification Page -->
+    <section class="verify-section">
+        <div class="container">
+            <div class="verify-card">
+                <div class="verify-icon"><i class="bi bi-patch-check-fill"></i></div>
+                <h2 class="text-center mb-2" style="color:var(--primary);font-size:1.8rem">Verify Certificate</h2>
+                <p class="text-center mb-4" style="color:var(--text-light)">Enter the certificate number to verify its authenticity</p>
+                <div class="form-floating-custom">
+                    <input type="text" class="form-control" id="certNumber" placeholder="Certificate Number">
+                    <label>Certificate Number</label>
+                </div>
+                <button class="btn btn-gold w-100 py-3" onclick="verifyCertificate()" id="verifyBtn">
+                    <i class="bi bi-search me-2"></i>Verify Certificate
+                </button>
+                <div id="verifyResult" class="mt-4" style="display:none"></div>
+                <div class="text-center mt-3">
+                    <a href="?page=home" class="text-decoration-none" style="color:var(--gold);font-size:.9rem">
+                        <i class="bi bi-arrow-left me-1"></i>Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <?php elseif ($page === 'reset-password'): ?>
+    <!-- Password Reset Page -->
+    <section class="reset-section">
+        <div class="container">
+            <div class="verify-card">
+                <div class="verify-icon"><i class="bi bi-key-fill"></i></div>
+                <h2 class="text-center mb-2" style="color:var(--primary);font-size:1.8rem">Reset Password</h2>
+                <p class="text-center mb-4" style="color:var(--text-light)">Enter your new password below</p>
+                <input type="hidden" id="resetToken" value="<?php echo htmlspecialchars($_GET['token'] ?? ''); ?>">
+                <div class="form-floating-custom">
+                    <input type="password" class="form-control" id="newPassword" placeholder="New Password">
+                    <label>New Password</label>
+                </div>
+                <div class="form-floating-custom">
+                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm Password">
+                    <label>Confirm Password</label>
+                </div>
+                <button class="btn btn-gold w-100 py-3" onclick="resetPassword()">
+                    <i class="bi bi-check-circle me-2"></i>Reset Password
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <?php else: ?>
+    <!-- Hero Section -->
+    <section class="hero" id="hero">
+        <canvas id="particles-canvas"></canvas>
+        <div class="hero-shape hero-shape-1"></div>
+        <div class="hero-shape hero-shape-2"></div>
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-7 hero-content">
                     <div class="hero-badge">
-                        <span class="me-2 rounded-circle bg-primary" style="width:8px; height:8px; display:inline-block;"></span> 
-                        SRMS Core v1.0 is now live
+                        <i class="bi bi-stars"></i> Trusted by Leading Institutions
                     </div>
                     <h1 class="hero-title">
-                        Modernize your <br>
-                        <span class="text-gradient">academic infrastructure.</span>
+                        Student Record<br><span>Management System</span>
                     </h1>
                     <p class="hero-subtitle">
-                        A centralized, lightning-fast platform designed to manage the entire student lifecycle with bank-grade security and zero friction.
+                        A comprehensive platform for managing student records, academic programmes, certificate issuance, and institutional administration — all in one place.
                     </p>
-                    <div class="d-flex flex-wrap gap-3">
-                        <button class="btn btn-premium" style="padding: 14px 32px; font-size: 1.05rem;" data-bs-toggle="modal" data-bs-target="#loginModal">
-                            Enter Workspace
+                    <div class="hero-buttons">
+                        <button class="btn btn-gold btn-lg" onclick="openLoginModal()">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Get Started
                         </button>
-                        <a href="#verify" class="btn btn-light" style="padding: 14px 32px; font-size: 1.05rem; border-radius: 8px; font-weight: 600; border: 1px solid #E5E7EB; color: var(--text-main);">
-                            Verify Document
+                        <button class="btn btn-outline-light-custom btn-lg" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
+                            <i class="bi bi-play-circle me-2"></i>Learn More
+                        </button>
+                    </div>
+                    <div class="hero-stats">
+                        <div class="row">
+                            <div class="col-6 col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number" data-target="5000">0</div>
+                                    <div class="stat-label">Students Managed</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number" data-target="50">0</div>
+                                    <div class="stat-label">Departments</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number" data-target="120">0</div>
+                                    <div class="stat-label">Programmes</div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="stat-item">
+                                    <div class="stat-number" data-target="2000">0</div>
+                                    <div class="stat-label">Certificates Issued</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Carousel -->
+    <section class="carousel-section">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-line"></div>
+                <h2 class="section-title">Why Choose SAZUG SRMS?</h2>
+                <p class="section-subtitle">Discover the powerful features that make student record management effortless</p>
+            </div>
+            <div id="featureCarousel" class="carousel slide" data-bs-ride="carousel" data-bs-interval="5000">
+                <div class="carousel-indicators mb-0" style="bottom:-20px">
+                    <button type="button" data-bs-target="#featureCarousel" data-bs-slide-to="0" class="active"></button>
+                    <button type="button" data-bs-target="#featureCarousel" data-bs-slide-to="1"></button>
+                    <button type="button" data-bs-target="#featureCarousel" data-bs-slide-to="2"></button>
+                </div>
+                <div class="carousel-inner">
+                    <!-- Slide 1 -->
+                    <div class="carousel-item active">
+                        <div class="row g-4">
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-people-fill"></i></div><h5>Student Management</h5><p>Complete student lifecycle management from enrollment to graduation with status tracking and profile management.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-building"></i></div><h5>Faculty & Department</h5><p>Organize academic structure with hierarchical management of faculties, departments, and programmes.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-book"></i></div><h5>Course Management</h5><p>Manage courses with prerequisites, credit units, lecturer assignments, and semester planning.</p></div></div>
+                        </div>
+                    </div>
+                    <!-- Slide 2 -->
+                    <div class="carousel-item">
+                        <div class="row g-4">
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-award"></i></div><h5>Certificate Issuance</h5><p>Auto-generate certificates with unique verification numbers for graduated students.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-shield-check"></i></div><h5>Certificate Verification</h5><p>Public verification portal allows employers and institutions to validate certificates instantly.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-file-earmark-arrow-up"></i></div><h5>Document Upload</h5><p>Secure document management with type classification, size limits, and easy retrieval.</p></div></div>
+                        </div>
+                    </div>
+                    <!-- Slide 3 -->
+                    <div class="carousel-item">
+                        <div class="row g-4">
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-bar-chart-line"></i></div><h5>Analytics Dashboard</h5><p>Real-time statistics with interactive charts for enrollment trends, gender distribution, and more.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-clock-history"></i></div><h5>Audit Trail</h5><p>Complete audit logging of all system activities with user tracking and IP recording.</p></div></div>
+                            <div class="col-md-4"><div class="feature-card"><div class="feature-icon"><i class="bi bi-download"></i></div><h5>CSV/Print Export</h5><p>Export student data, audit logs, and reports to CSV for offline analysis and record keeping.</p></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Grid -->
+    <section class="features-grid" id="features">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-line"></div>
+                <h2 class="section-title">Powerful Features</h2>
+                <p class="section-subtitle">Everything you need for efficient student record management</p>
+            </div>
+            <div class="row g-4">
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-primary"><i class="bi bi-speedometer2"></i></div><h5>Dashboard Analytics</h5><p class="text-muted">Visual insights with real-time statistics and interactive charts.</p></div></div>
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-gold"><i class="bi bi-person-check"></i></div><h5>Role-Based Access</h5><p class="text-muted">Separate dashboards for admin, lecturers, and students.</p></div></div>
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-primary"><i class="bi bi-calendar-event"></i></div><h5>Session Management</h5><p class="text-muted">Manage academic sessions, semesters, and enrollment periods.</p></div></div>
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-gold"><i class="bi bi-person-badge"></i></div><h5>Staff Management</h5><p class="text-muted">Manage admin and lecturer accounts with role assignments.</p></div></div>
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-primary"><i class="bi bi-gear"></i></div><h5>System Settings</h5><p class="text-muted">Customize institution details, upload limits, and system preferences.</p></div></div>
+                <div class="col-md-4 animate-on-scroll"><div class="text-center"><div class="icon-box icon-box-gold"><i class="bi bi-moon"></i></div><h5>Dark Mode</h5><p class="text-muted">Beautiful dark theme for comfortable viewing at any time.</p></div></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="contact">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="footer-brand mb-3"><i class="bi bi-mortarboard-fill me-2"></i>SAZUG SRMS</div>
+                    <p>A comprehensive student record management system designed for modern educational institutions. Streamline your academic administration with powerful tools and intuitive interfaces.</p>
+                </div>
+                <div class="col-lg-2 col-md-4">
+                    <h5>Quick Links</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="?page=home">Home</a></li>
+                        <li><a href="?page=home#features">Features</a></li>
+                        <li><a href="?page=verify">Verify Certificate</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4">
+                    <h5>Resources</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">API Reference</a></li>
+                        <li><a href="#">Support</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-4">
+                    <h5>Contact</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="mailto:info@sazug.edu.ng"><i class="bi bi-envelope me-2"></i>info@sazug.edu.ng</a></li>
+                        <li><a href="tel:+2348000000000"><i class="bi bi-phone me-2"></i>+234 800 000 0000</a></li>
+                        <li><a href="#"><i class="bi bi-geo-alt me-2"></i>Nigeria</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; <?php echo date('Y'); ?> SAZUG Student Record Management System. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    <?php endif; ?>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-box-arrow-in-right me-2"></i>Login to SRMS</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-floating-custom">
+                        <input type="text" class="form-control" id="loginUsername" placeholder="Username">
+                        <label>Username</label>
+                    </div>
+                    <div class="form-floating-custom">
+                        <input type="password" class="form-control" id="loginPassword" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+                        <label>Password</label>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe" style="font-size:.85rem">Remember me</label>
+                        </div>
+                        <a href="javascript:void(0)" onclick="openForgotModal()" style="color:var(--gold);font-size:.85rem;text-decoration:none">Forgot Password?</a>
+                    </div>
+                    <button class="btn btn-gold w-100 py-3" onclick="doLogin()" id="loginBtn">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div class="modal fade" id="forgotModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-key me-2"></i>Reset Password</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p style="color:var(--text-light);font-size:.9rem;margin-bottom:1.5rem">Enter your email address to receive a password reset link.</p>
+                    <div class="form-floating-custom">
+                        <input type="email" class="form-control" id="forgotEmail" placeholder="Email Address">
+                        <label>Email Address</label>
+                    </div>
+                    <button class="btn btn-gold w-100 py-3" onclick="doForgotPassword()">
+                        <i class="bi bi-send me-2"></i>Send Reset Link
+                    </button>
+                    <div class="text-center mt-3">
+                        <a href="javascript:void(0)" onclick="closeForgotModal()" style="color:var(--gold);font-size:.85rem;text-decoration:none">
+                            <i class="bi bi-arrow-left me-1"></i>Back to Login
                         </a>
                     </div>
                 </div>
-                
-                <div class="col-lg-6 d-none d-lg-block">
-                    <div class="hero-visual-container">
-                        <!-- Abstract UI Cards built with CSS -->
-                        <div class="floating-card card-1" style="--rot: -5deg;">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3"><i class="fas fa-shield-alt"></i></div>
-                                <div><h6 class="mb-0 fw-bold">RBAC Security</h6><small class="text-muted">Active Protection</small></div>
-                            </div>
-                            <div class="w-100 bg-light rounded-pill mb-2" style="height: 6px;"></div>
-                            <div class="w-75 bg-light rounded-pill" style="height: 6px;"></div>
-                        </div>
-                        
-                        <div class="floating-card card-2" style="--rot: 3deg;">
-                            <h2 class="fw-bold mb-0">99.9%</h2>
-                            <p class="text-white-50 small mb-3">System Uptime</p>
-                            <div class="d-flex gap-1 align-items-end" style="height: 40px;">
-                                <div class="bg-primary rounded-top w-100 h-50"></div>
-                                <div class="bg-primary rounded-top w-100 h-75"></div>
-                                <div class="bg-primary rounded-top w-100 h-100"></div>
-                                <div class="bg-primary rounded-top w-100 h-50"></div>
-                                <div class="bg-primary rounded-top w-100 h-75"></div>
-                            </div>
-                        </div>
-
-                        <div class="floating-card card-3" style="--rot: 2deg;">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <h6 class="mb-0 fw-bold text-dark">Certificate Gen</h6>
-                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill">Success</span>
-                            </div>
-                            <div class="d-flex align-items-center bg-light rounded-3 p-2 border">
-                                <i class="fas fa-qrcode fa-2x text-dark opacity-50 me-3"></i>
-                                <div><small class="d-block fw-bold text-dark">SAZUG/2026/001</small><small class="text-muted" style="font-size:0.7rem">Anti-Forgery QR Attached</small></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="bento-section" id="platform">
-        <div class="container">
-            <div class="text-center mb-5 pb-3">
-                <h2 class="fw-bold text-dark" style="font-size: 2.5rem; letter-spacing: -1px;">Built for scale and simplicity.</h2>
-                <p class="text-muted fs-5">Everything you need to run an institution, out of the box.</p>
-            </div>
-            
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="bento-card">
-                        <div class="icon-box"><i class="fas fa-users-cog"></i></div>
-                        <h4 class="fw-bold mb-3">Unified Records</h4>
-                        <p class="text-muted">A single source of truth for demographics, enrollments, and academic standings across all faculties and departments.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="bento-card">
-                        <div class="icon-box dark"><i class="fas fa-fingerprint"></i></div>
-                        <h4 class="fw-bold mb-3">Granular Access</h4>
-                        <p class="text-muted">Strict Role-Based Access Control (RBAC) ensures Registrars, Lecturers, and Students only see what they are authorized to see.</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="bento-card">
-                        <div class="icon-box purple"><i class="fas fa-certificate"></i></div>
-                        <h4 class="fw-bold mb-3">Digital Credentials</h4>
-                        <p class="text-muted">Automated PDF certificate generation with embedded cryptographic QR codes to permanently eliminate document forgery.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <section class="verify-section" id="verify">
-        <div class="container position-relative z-1 text-center">
-            <i class="fas fa-shield-check text-primary mb-4" style="font-size: 3rem; opacity: 0.8;"></i>
-            <h2 class="fw-bold mb-3" style="font-size: 2.5rem;">Global Verification Gateway</h2>
-            <p class="text-white-50 mb-5 fs-5 max-w-2xl mx-auto">Employers and institutions can instantly cryptographically verify the authenticity of any SAZUG graduation document.</p>
-            
-            <form method="GET" action="index.php">
-                <div class="search-bar-wrapper">
-                    <input type="text" name="verify" class="search-input" placeholder="Enter Certificate ID (e.g., SAZUG/2026/000001)" required autocomplete="off">
-                    <button type="submit" class="btn-search">Authenticate</button>
-                </div>
-            </form>
-            <p class="mt-4 small text-white-50"><i class="fas fa-lock me-1"></i> Connections are encrypted via 256-bit TLS.</p>
-        </div>
-    </section>
-
-<?php endif; ?>
-
-<footer class="footer">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
-                <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
-                    <i class="fas fa-layer-group text-primary"></i>
-                    <span class="fw-bold text-dark tracking-tight">SAZUG SRMS</span>
-                </div>
-                <p class="text-muted small mb-0">&copy; <?= date('Y') ?> SAZUG Institution. Enterprise Production Engine.</p>
-            </div>
-            <div class="col-md-6 text-center text-md-end">
-                <a href="#" class="text-muted text-decoration-none small mx-2">Privacy Policy</a>
-                <a href="#" class="text-muted text-decoration-none small mx-2">Terms of Service</a>
-                <a href="#" class="text-muted text-decoration-none small mx-2">System Status</a>
             </div>
         </div>
     </div>
-</footer>
 
-<!-- PREMIUM LOGIN MODAL -->
-<div class="modal fade custom-modal" id="loginModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content overflow-hidden row flex-row m-0">
-            <!-- Left Info Pane -->
-            <div class="col-md-5 modal-left-pane d-none d-md-flex">
-                <div class="mb-5">
-                    <i class="fas fa-layer-group fa-2x text-primary mb-3"></i>
-                    <h3 class="fw-bold">Welcome back.</h3>
-                    <p class="text-white-50 mt-2">Sign in to your workspace to manage records, review analytics, and issue credentials.</p>
-                </div>
-                <div class="mt-auto">
-                    <div class="d-flex align-items-center text-white-50 small bg-white bg-opacity-10 p-3 rounded-3">
-                        <i class="fas fa-info-circle me-3 fa-lg"></i>
-                        <span>Students: Use your Admission Number to access your portal.</span>
-                    </div>
-                </div>
-            </div>
-            <!-- Right Login Pane -->
-            <div class="col-md-7 p-5 bg-white">
-                <div class="d-flex justify-content-between align-items-center mb-5">
-                    <h4 class="fw-bold text-dark mb-0">Sign In</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="loginForm">
-                    <div class="form-floating mb-4">
-                        <input type="text" class="form-control" id="username" placeholder="Username" required>
-                        <label for="username" class="text-muted">Username or Admission No.</label>
-                    </div>
-                    <div class="form-floating mb-4">
-                        <input type="password" class="form-control" id="password" placeholder="Password" required>
-                        <label for="password" class="text-muted">Password</label>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="remember">
-                            <label class="form-check-label text-muted small" for="remember">Remember this device</label>
-                        </div>
-                        <a href="#" class="text-primary text-decoration-none small fw-semibold">Forgot Password?</a>
-                    </div>
-                    <button type="submit" class="btn btn-premium w-100 py-3 d-flex justify-content-center align-items-center gap-2" id="loginBtn">
-                        Authenticate <i class="fas fa-arrow-right"></i>
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+    // Theme
+    function toggleTheme(){const t=document.documentElement.getAttribute('data-bs-theme');const n=t==='dark'?'light':'dark';document.documentElement.setAttribute('data-bs-theme',n);localStorage.setItem('theme',n);updateThemeIcon(n)}
+    function updateThemeIcon(t){document.getElementById('themeIcon').className=t==='dark'?'bi bi-sun-fill':'bi bi-moon-stars-fill'}
+    (function(){const t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-bs-theme',t);updateThemeIcon(t)}})();
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    const loginForm = document.getElementById('loginForm');
-    if(loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('loginBtn');
-            const user = document.getElementById('username').value;
-            const pass = document.getElementById('password').value;
-            
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Authenticating...';
-            btn.disabled = true;
+    // Navbar scroll
+    window.addEventListener('scroll',()=>{const n=document.getElementById('mainNav');if(n)n.classList.toggle('scrolled',window.scrollY>50)});
 
-            try {
-                const response = await fetch('api.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'login', username: user, password: pass })
-                });
-                const data = await response.json();
+    // Particles
+    (function(){const c=document.getElementById('particles-canvas');if(!c)return;const ctx=c.getContext('2d');let particles=[];function resize(){c.width=window.innerWidth;c.height=window.innerHeight}resize();window.addEventListener('resize',resize);
+    for(let i=0;i<60;i++){particles.push({x:Math.random()*c.width,y:Math.random()*c.height,vx:(Math.random()-.5)*.5,vy:(Math.random()-.5)*.5,r:Math.random()*2+1,a:Math.random()*.4+.1})}
+    function draw(){ctx.clearRect(0,0,c.width,c.height);particles.forEach((p,i)=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>c.width)p.vx*=-1;if(p.y<0||p.y>c.height)p.vy*=-1;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle='rgba(201,151,63,'+p.a+')';ctx.fill();
+    particles.forEach((p2,j)=>{if(i===j)return;const d=Math.hypot(p.x-p2.x,p.y-p2.y);if(d<120){ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(201,151,63,'+((1-d/120)*.15)+')';ctx.stroke()}})});requestAnimationFrame(draw)}draw()})();
 
-                if (data.status) {
-                    btn.innerHTML = '<i class="fas fa-check me-2"></i> Success';
-                    btn.classList.replace('btn-premium', 'btn-success');
-                    
-                    setTimeout(() => {
-                        if (['Super Administrator', 'Administrator', 'Registrar', 'Department Officer'].includes(data.role)) {
-                            window.location.href = 'admin_spa.php';
-                        } else if (data.role === 'Lecturer') {
-                            window.location.href = 'lecturer_spa.php';
-                        } else {
-                            window.location.href = 'student_spa.php';
-                        }
-                    }, 600);
-                } else {
-                    Swal.fire({ 
-                        icon: 'error', 
-                        title: 'Authentication Failed', 
-                        text: data.message,
-                        confirmButtonColor: '#0B1121',
-                        customClass: { popup: 'rounded-4' }
-                    });
-                    btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right"></i>';
-                    btn.disabled = false;
-                }
-            } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Network Error', text: 'Failed to securely connect to authentication servers.' });
-                btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right"></i>';
-                btn.disabled = false;
-            }
-        });
+    // Counter Animation
+    function animateCounters(){document.querySelectorAll('.stat-number').forEach(el=>{const target=parseInt(el.dataset.target);const duration=2000;const start=Date.now();function update(){const elapsed=Date.now()-start;const progress=Math.min(elapsed/duration,1);const eased=1-Math.pow(1-progress,3);el.textContent=Math.floor(target*eased).toLocaleString();if(progress<1)requestAnimationFrame(update)}update()})}
+    const heroObserver=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){animateCounters();heroObserver.disconnect()}})},{threshold:.3});
+    const heroEl=document.getElementById('hero');if(heroEl)heroObserver.observe(heroEl);
+
+    // Scroll animations
+    const scrollObserver=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')})},{threshold:.1});
+    document.querySelectorAll('.animate-on-scroll').forEach(el=>scrollObserver.observe(el));
+
+    // Login
+    function openLoginModal(){new bootstrap.Modal(document.getElementById('loginModal')).show()}
+    function openForgotModal(){bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();new bootstrap.Modal(document.getElementById('forgotModal')).show()}
+    function closeForgotModal(){bootstrap.Modal.getInstance(document.getElementById('forgotModal')).hide();setTimeout(openLoginModal,200)}
+
+    async function doLogin(){
+        const u=document.getElementById('loginUsername').value.trim();const p=document.getElementById('loginPassword').value;
+        if(!u||!p){Swal.fire('Error','Please enter username and password','error');return}
+        const btn=document.getElementById('loginBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-hourglass-split me-2"></i>Signing in...';
+        try{const r=await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'login',username:u,password:p})});
+        const d=await r.json();if(d.success){const user=d.data.user;const token=d.data.token;
+        localStorage.setItem('sazug_token',token);localStorage.setItem('sazug_user',JSON.stringify(user));
+        const dashboards={superadmin:'admin_spa.php',admin:'admin_spa.php',lecturer:'lecturer_spa.php',student:'student_spa.php'};
+        Swal.fire({icon:'success',title:'Welcome!',text:'Redirecting to dashboard...',timer:1500,showConfirmButton:false});
+        setTimeout(()=>{window.location.href=dashboards[user.role]||'index.php'},1500)}else{Swal.fire('Error',d.error||'Login failed','error');btn.disabled=false;btn.innerHTML='<i class="bi bi-box-arrow-in-right me-2"></i>Sign In'}}
+        catch(e){Swal.fire('Error','Network error. Please try again.','error');btn.disabled=false;btn.innerHTML='<i class="bi bi-box-arrow-in-right me-2"></i>Sign In'}
     }
 
-    // Add scroll effect to navbar
-    window.addEventListener('scroll', () => {
-        const nav = document.querySelector('.navbar-glass');
-        if (window.scrollY > 20) {
-            nav.style.boxShadow = '0 10px 30px -10px rgba(0,0,0,0.1)';
-            nav.style.background = 'rgba(255, 255, 255, 0.95)';
-        } else {
-            nav.style.boxShadow = 'none';
-            nav.style.background = 'rgba(255, 255, 255, 0.85)';
-        }
-    });
-</script>
+    // Forgot Password
+    async function doForgotPassword(){
+        const email=document.getElementById('forgotEmail').value.trim();
+        if(!email){Swal.fire('Error','Please enter your email','error');return}
+        try{const r=await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset_password_request',email})});
+        const d=await r.json();if(d.success){bootstrap.Modal.getInstance(document.getElementById('forgotModal')).hide();Swal.fire({icon:'success',title:'Check Your Email',text:d.message})}else{Swal.fire('Error',d.error,'error')}}
+        catch(e){Swal.fire('Error','Network error','error')}
+    }
+
+    // Certificate Verification
+    async function verifyCertificate(){
+        const num=document.getElementById('certNumber').value.trim();if(!num){Swal.fire('Error','Please enter a certificate number','error');return}
+        const btn=document.getElementById('verifyBtn');btn.disabled=true;btn.innerHTML='<i class="bi bi-hourglass-split me-2"></i>Verifying...';
+        try{const r=await fetch('api.php?action=verify_certificate&certificate_number='+encodeURIComponent(num));const d=await r.json();
+        const res=document.getElementById('verifyResult');res.style.display='block';
+        if(d.success){const c=d.data;res.innerHTML='<div class="alert alert-success"><h5 class="alert-heading"><i class="bi bi-patch-check-fill me-2"></i>Certificate Verified!</h5><hr><div class="row g-2"><div class="col-sm-6"><strong>Name:</strong> '+c.full_name+'</div><div class="col-sm-6"><strong>Programme:</strong> '+c.programme_type+' in '+c.programme_name+'</div><div class="col-sm-6"><strong>Faculty:</strong> '+c.faculty_name+'</div><div class="col-sm-6"><strong>Department:</strong> '+c.department_name+'</div><div class="col-sm-6"><strong>Issued:</strong> '+c.certificate_issued_at+'</div><div class="col-sm-6"><strong>Code:</strong> '+c.certificate_number+'</div></div></div>'}
+        else{res.innerHTML='<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>'+d.error+'</div>'}btn.disabled=false;btn.innerHTML='<i class="bi bi-search me-2"></i>Verify Certificate'}
+        catch(e){document.getElementById('verifyResult').style.display='block';document.getElementById('verifyResult').innerHTML='<div class="alert alert-danger">Network error. Please try again.</div>';btn.disabled=false;btn.innerHTML='<i class="bi bi-search me-2"></i>Verify Certificate'}
+    }
+
+    // Password Reset
+    async function resetPassword(){
+        const token=document.getElementById('resetToken').value;const pass=document.getElementById('newPassword').value;const confirm=document.getElementById('confirmPassword').value;
+        if(!pass||!confirm){Swal.fire('Error','Please fill all fields','error');return}
+        if(pass!==confirm){Swal.fire('Error','Passwords do not match','error');return}
+        if(pass.length<8){Swal.fire('Error','Password must be at least 8 characters','error');return}
+        try{const r=await fetch('api.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset_password',token,password:pass})});
+        const d=await r.json();if(d.success){Swal.fire({icon:'success',title:'Success!',text:'Password has been reset. You can now login.',timer:2000,showConfirmButton:false});setTimeout(()=>window.location.href='index.php',2000)}else{Swal.fire('Error',d.error,'error')}}
+        catch(e){Swal.fire('Error','Network error','error')}
+    }
+    </script>
 </body>
 </html>
