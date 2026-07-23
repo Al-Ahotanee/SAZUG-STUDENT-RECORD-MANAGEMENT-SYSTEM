@@ -3,16 +3,20 @@ services:
     name: sazug-srms
     env: docker
     plan: free
-    healthCheckPath: /
+    healthCheckPath: /index.php
     envVars:
       - key: DB_HOST
         value: 'your_mysql_host_here'
+      - key: DB_PORT
+        value: '3306'
       - key: DB_NAME
         value: 'sazug_srms'
       - key: DB_USER
         value: 'root'
       - key: DB_PASS
         value: ''
+      - key: DB_SSL
+        value: 'false'
       - key: APP_ENV
         value: 'production'
       - key: SESSION_SECURE

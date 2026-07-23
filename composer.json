@@ -1,10 +1,9 @@
 {
     "name": "sazug/srms",
-    "description": "SAZUG Student Record Management System - Production",
+    "description": "SAZUG Student Record Management System — Production Ready v2.0",
     "type": "project",
     "require": {
         "php": ">=8.3",
-        "mpdf/mpdf": "^8.2",
         "endroid/qr-code": "^5.0"
     },
     "config": {

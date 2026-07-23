@@ -1,74 +1,65 @@
 <?php
 /**
- * SAZUG SRMS - One-Click Database Installer & Wiper
- * Automatically drops existing tables, imports schema.sql, and seeds superadmin.
+ * SAZUG SRMS — Database Installer & Reset Tool
+ * One-click: wipe all tables, import schema.sql, seed default admin.
+ * SECURITY: Delete this file after successful installation.
  */
 
 $lockFile = __DIR__ . '/install.lock';
-$message = '';
-$status = '';
+$message  = '';
+$status   = '';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
-    
-    $host = trim(getenv('DB_HOST'));
-    $port = trim(getenv('DB_PORT') ?: '12417'); // Aiven custom port
-    $db   = trim(getenv('DB_NAME') ?: 'defaultdb'); // Aiven default db name
-    $user = trim(getenv('DB_USER') ?: 'avnadmin');
-    $pass = trim(getenv('DB_PASS'));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['install'] ?? false)) {
+
+    $host = trim(getenv('DB_HOST') ?: 'localhost');
+    $port = trim(getenv('DB_PORT') ?: '3306');
+    $db   = trim(getenv('DB_NAME') ?: 'sazug_srms');
+    $user = trim(getenv('DB_USER') ?: 'root');
+    $pass = trim(getenv('DB_PASS') ?: '');
+    $ssl  = trim(getenv('DB_SSL')  ?: 'false');
 
     if (!$host || !$db || !$user) {
-        $status = 'error';
-        $message = "Database credentials are missing. Please ensure DB_HOST, DB_NAME, DB_USER, and DB_PASS are set in Render's Environment Variables.";
+        $status  = 'error';
+        $message = 'Database credentials are missing. Ensure DB_HOST, DB_NAME, DB_USER, and DB_PASS are set as environment variables.';
     } else {
         try {
-            // Aiven requires SSL mode and multi-statements to run the full schema script
-            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4;sslmode=require";
+            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4" . ($ssl === 'true' ? ';sslmode=require' : '');
             $options = [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_ERRMODE             => PDO::ERRMODE_EXCEPTION,
                 PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
             ];
-            
             $pdo = new PDO($dsn, $user, $pass, $options);
-            
-            // 1. WIPE EXISTING TABLES (Drops all tables cleanly in reverse dependency order or ignoring FK checks)
+
+            // Wipe existing tables
             $pdo->exec("SET FOREIGN_KEY_CHECKS = 0;");
-            $tablesStmt = $pdo->query("SHOW TABLES");
-            $tables = $tablesStmt->fetchAll(PDO::FETCH_COLUMN);
-            foreach ($tables as $table) {
-                $pdo->exec("DROP TABLE IF EXISTS `$table`");
+            $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($tables as $t) {
+                $pdo->exec("DROP TABLE IF EXISTS `$t`");
             }
             $pdo->exec("SET FOREIGN_KEY_CHECKS = 1;");
 
-            // 2. Read the schema file
+            // Import schema
             $schemaFile = __DIR__ . '/schema.sql';
             if (!file_exists($schemaFile)) {
-                throw new Exception("<b>schema.sql</b> file not found in the root directory.");
+                throw new Exception('<b>schema.sql</b> not found in the root directory.');
             }
-            
-            $sql = file_get_contents($schemaFile);
-            
-            // 3. Execute the entire schema
-            $pdo->exec($sql);
-            
-            // 4. Dynamically generate a fresh, native password hash for Admin@123 matching this PHP runtime version
-            $adminPasswordHash = password_hash('Admin@123', PASSWORD_BCRYPT);
-            
-            // Ensure superadmin account exists and has the correct fresh hash
-            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role, status) VALUES ('superadmin', ?, 'Super Administrator', 'Active') ON DUPLICATE KEY UPDATE password_hash = ?");
-            $stmt->execute([$adminPasswordHash, $adminPasswordHash]);
-            
-            // Create a lock file
-            file_put_contents($lockFile, "Installed & wiped successfully on " . date('Y-m-d H:i:s'));
-            
-            $status = 'success';
-            $message = "Database wiped, schema imported successfully into Aiven, and Super Administrator account created!";
-            
+            $pdo->exec(file_get_contents($schemaFile));
+
+            // Regenerate fresh admin hash for this PHP runtime
+            $adminHash = password_hash('Admin@123', PASSWORD_BCRYPT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, email, password_hash, role, status) VALUES ('superadmin', 'admin@sazug.edu.ng', ?, 'Super Administrator', 'Active') ON DUPLICATE KEY UPDATE password_hash = ?");
+            $stmt->execute([$adminHash, $adminHash]);
+            $pdo->prepare("INSERT IGNORE INTO staff (user_id, full_name, phone, status) SELECT id, 'System Super Administrator', '08000000000', 'Active' FROM users WHERE username='superadmin' LIMIT 1")->execute();
+
+            file_put_contents($lockFile, 'Installed on ' . date('Y-m-d H:i:s'));
+            $status  = 'success';
+            $message = 'Database installed successfully! Super Administrator account is ready. <strong>Username:</strong> superadmin &nbsp;|&nbsp; <strong>Password:</strong> Admin@123';
         } catch (PDOException $e) {
-            $status = 'error';
-            $message = "Aiven Database Connection Error: " . htmlspecialchars($e->getMessage()) . "<br><small>Double-check that your DB_PORT matches your 5-digit Aiven port (12417) and your IP allowlist is set to 0.0.0.0/0.</small>";
+            $status  = 'error';
+            $message = 'Database Error: ' . htmlspecialchars($e->getMessage());
         } catch (Exception $e) {
-            $status = 'error';
-            $message = "Error: " . $e->getMessage();
+            $status  = 'error';
+            $message = 'Error: ' . $e->getMessage();
         }
     }
 }
@@ -76,54 +67,100 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAZUG SRMS - Aiven Installer</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        body { background-color: #f4f7f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-        .install-card { border: none; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 600px; width: 100%; padding: 40px; background: white; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAZUG SRMS — Database Installer</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+body{font-family:'Inter',sans-serif;background:#f0f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px}
+.install-card{background:#fff;border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.1);max-width:680px;width:100%;overflow:hidden}
+.install-header{background:linear-gradient(135deg,#0a2540,#0f3460);padding:36px 40px;text-align:center;color:#fff}
+.install-header .icon{width:72px;height:72px;background:rgba(255,255,255,.12);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:2rem;margin:0 auto 16px}
+.install-body{padding:36px 40px}
+.env-badge{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:.83rem}
+.env-badge .env-key{color:#64748b;font-weight:500}
+.env-badge .env-val{font-weight:700;color:#1a202c}
+.env-badge .env-missing{color:#ef4444;font-weight:700}
+.btn-install{background:linear-gradient(135deg,#0f3460,#e94560);color:#fff;border:none;border-radius:12px;padding:15px;font-weight:700;font-size:1rem;width:100%;transition:opacity .3s;margin-top:20px}
+.btn-install:hover{opacity:.9;color:#fff}
+</style>
 </head>
 <body>
+<div class="install-card">
+    <div class="install-header">
+        <div class="icon"><i class="fas fa-database"></i></div>
+        <h3 class="fw-bold mb-1">SAZUG SRMS Installer</h3>
+        <p style="opacity:.7;font-size:.9rem;margin:0">Database setup and schema import tool</p>
+    </div>
+    <div class="install-body">
 
-<div class="container">
-    <div class="install-card mx-auto text-center">
-        <i class="fas fa-database fa-4x text-primary mb-4"></i>
-        <h2 class="fw-bold mb-3">Aiven Database Setup & Wipe</h2>
-        <p class="text-muted mb-4">This tool will wipe all existing tables, securely connect to your Aiven MySQL database using port 12417, and execute your schema fresh.</p>
-        
         <?php if ($status === 'success'): ?>
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle me-2"></i> <?= $message ?>
-            </div>
-            <a href="index.php" class="btn btn-success w-100 py-2 mt-3">Go to Login Portal</a>
-            <p class="text-danger mt-3 small"><i class="fas fa-exclamation-triangle"></i> Important: Delete <b>install.php</b> from your GitHub repository now to secure your system.</p>
-        <?php elseif ($status === 'error'): ?>
-            <div class="alert alert-danger text-start">
-                <i class="fas fa-times-circle me-2"></i> <?= $message ?>
-            </div>
-            <a href="install.php" class="btn btn-outline-primary mt-3">Try Again</a>
+        <div class="alert alert-success border-0 rounded-3 mb-4">
+            <i class="fas fa-check-circle me-2"></i><?= $message ?>
+        </div>
+        <a href="index.php" class="btn btn-success w-100 rounded-pill py-3 fw-700 mb-3">
+            <i class="fas fa-rocket me-2"></i>Go to Login Portal
+        </a>
+        <div class="alert alert-danger border-0 rounded-3" style="font-size:.85rem">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Security Warning:</strong> Delete or rename <code>install.php</code> immediately after installation to prevent unauthorized access.
+        </div>
+        <?php else: ?>
+
+        <?php if ($status === 'error'): ?>
+        <div class="alert alert-danger border-0 rounded-3 mb-4">
+            <i class="fas fa-times-circle me-2"></i><?= $message ?>
+        </div>
         <?php endif; ?>
 
-        <?php if ($status !== 'success'): ?>
-            <form method="POST" action="">
-                <button type="submit" name="install" value="1" class="btn btn-primary w-100 py-2 fs-5">
-                    <i class="fas fa-sync-alt me-2"></i> Wipe & Run Aiven Installer
-                </button>
-            </form>
-            <div class="text-start mt-4 bg-light p-3 rounded small border">
-                <strong>Current Environment Check:</strong><br>
-                Host: <code><?= getenv('DB_HOST') ? htmlspecialchars(getenv('DB_HOST')) : '<span class="text-danger">Missing</span>' ?></code><br>
-                Port: <code><?= getenv('DB_PORT') ? htmlspecialchars(getenv('DB_PORT')) : '12417 (Configured)' ?></code><br>
-                Database Name: <code><?= getenv('DB_NAME') ? htmlspecialchars(getenv('DB_NAME')) : 'defaultdb' ?></code><br>
-                Username: <code><?= getenv('DB_USER') ? htmlspecialchars(getenv('DB_USER')) : 'avnadmin' ?></code><br>
-                Password: <code><?= getenv('DB_PASS') ? 'Set (Hidden)' : '<span class="text-danger">Missing</span>' ?></code>
+        <p style="color:#64748b;font-size:.9rem;line-height:1.7;margin-bottom:24px">
+            This tool will <strong>wipe all existing tables</strong> and reimport the full database schema fresh. 
+            Use this for a clean installation or to reset the database. Ensure your environment variables are configured before proceeding.
+        </p>
+
+        <!-- Environment Check -->
+        <h6 style="font-weight:700;font-size:.82rem;color:#374151;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">Environment Variables</h6>
+        <div class="d-flex flex-column gap-2 mb-4">
+            <?php
+            $envVars = [
+                'DB_HOST' => getenv('DB_HOST') ?: null,
+                'DB_PORT' => getenv('DB_PORT') ?: '3306 (default)',
+                'DB_NAME' => getenv('DB_NAME') ?: null,
+                'DB_USER' => getenv('DB_USER') ?: null,
+                'DB_PASS' => getenv('DB_PASS') ? '****** (set)' : null,
+                'DB_SSL'  => getenv('DB_SSL') ?: 'false (default)',
+            ];
+            foreach ($envVars as $key => $val): ?>
+            <div class="env-badge">
+                <span class="env-key"><?= $key ?></span>
+                <?php if ($val): ?>
+                    <span class="env-val"><?= htmlspecialchars($val) ?></span>
+                <?php else: ?>
+                    <span class="env-missing"><i class="fas fa-times me-1"></i>Not Set</span>
+                <?php endif; ?>
             </div>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="alert alert-warning border-0 rounded-3" style="font-size:.85rem;margin-bottom:20px">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Warning:</strong> This action will permanently delete all existing data. It cannot be undone.
+        </div>
+
+        <form method="POST" action="" onsubmit="return confirm('Are you absolutely sure? All existing data will be permanently deleted.')">
+            <button type="submit" name="install" value="1" class="btn-install">
+                <i class="fas fa-sync-alt me-2"></i>Wipe Database & Run Installer
+            </button>
+        </form>
+
         <?php endif; ?>
+
+        <div class="text-center mt-4">
+            <a href="index.php" style="font-size:.82rem;color:#94a3b8;text-decoration:none"><i class="fas fa-arrow-left me-1"></i>Back to Login Portal</a>
+        </div>
     </div>
 </div>
-
 </body>
 </html>
