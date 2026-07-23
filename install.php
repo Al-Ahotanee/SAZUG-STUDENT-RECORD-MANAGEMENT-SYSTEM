@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
             
             $pdo = new PDO($dsn, $user, $pass, $options);
             
-            // 1. WIPE EXISTING TABLES (Drops all tables cleanly to prevent duplicate entry errors)
+            // 1. WIPE EXISTING TABLES (Drops all tables cleanly in reverse dependency order or ignoring FK checks)
             $pdo->exec("SET FOREIGN_KEY_CHECKS = 0;");
             $tablesStmt = $pdo->query("SHOW TABLES");
             $tables = $tablesStmt->fetchAll(PDO::FETCH_COLUMN);
