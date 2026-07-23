@@ -19,7 +19,7 @@ try {
     $action = $_GET['action'] ?? $input['action'] ?? $_POST['action'] ?? '';
 
     // CSRF enforcement (skip for login and public endpoints)
-    $publicActions = ['login', 'forgot_password', 'reset_password', 'verify_certificate'];
+    $publicActions = ['login', 'forgot_password', 'reset_password', 'verify_certificate', 'register'];
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && !in_array($action, $publicActions)) {
         $headers   = getallheaders();
         $csrfToken = $headers['X-Csrf-Token'] ?? $headers['X-CSRF-Token'] ?? $input['csrf_token'] ?? $_POST['csrf_token'] ?? '';
@@ -264,7 +264,7 @@ try {
             $id = $core->insert('programmes', [
                 'department_id'  => (int)($input['department_id'] ?? 0),
                 'name'           => trim($input['name'] ?? ''),
-                'type'           => $input['type'] ?? 'ND',
+                'type'           => $input['type'] ?? 'Undergraduate',
                 'duration_years' => (int)($input['duration_years'] ?? 2),
             ]);
             $response = ['status' => true, 'message' => 'Programme created.', 'id' => $id];
@@ -375,6 +375,128 @@ try {
         case 'toggle_user_status':
             $core->enforcePermissions(['Super Administrator', 'Administrator']);
             $response = $core->toggleUserStatus((int)($input['user_id'] ?? 0), $input['status'] ?? 'Active');
+            break;
+
+        /* ---- SELF-REGISTRATION ---- */
+        case 'register':
+            $response = $core->submitRegistrationRequest([
+                'request_type' => $input['request_type'] ?? 'Student',
+                'full_name' => trim($input['full_name'] ?? ''),
+                'email' => trim($input['email'] ?? ''),
+                'phone' => trim($input['phone'] ?? ''),
+                'username' => trim($input['username'] ?? ''),
+                'password' => $input['password'] ?? '',
+                'gender' => $input['gender'] ?? null,
+                'department_id' => $input['department_id'] ?? null,
+                'faculty_id' => $input['faculty_id'] ?? null,
+                'programme_id' => $input['programme_id'] ?? null,
+                'qualification' => $input['qualification'] ?? null,
+                'specialization' => $input['specialization'] ?? null,
+                'staff_id' => $input['staff_id'] ?? null,
+                'dob' => $input['dob'] ?? null,
+                'state' => $input['state'] ?? null,
+                'lga' => $input['lga'] ?? null,
+                'nationality' => $input['nationality'] ?? 'Nigerian',
+                'religion' => $input['religion'] ?? null,
+                'marital_status' => $input['marital_status'] ?? null,
+                'place_of_birth' => $input['place_of_birth'] ?? null,
+                'home_town' => $input['home_town'] ?? null,
+                'guardian_name' => $input['guardian_name'] ?? null,
+                'guardian_phone' => $input['guardian_phone'] ?? null,
+            ]);
+            break;
+
+        /* ---- REGISTRATION MANAGEMENT (Admin) ---- */
+        case 'get_registration_requests':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $status = $_GET['status'] ?? $input['status'] ?? 'Pending';
+            $response = ['status' => true, 'data' => $core->getRegistrationRequests($status)];
+            break;
+
+        case 'approve_registration':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $response = $core->approveRegistration((int)($input['id'] ?? 0), (int)$_SESSION['user_id']);
+            break;
+
+        case 'reject_registration':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $response = $core->rejectRegistration((int)($input['id'] ?? 0), (int)$_SESSION['user_id'], $input['reason'] ?? '');
+            break;
+
+        /* ---- COURSE REGISTRATION (Student) ---- */
+        case 'get_available_courses':
+            if (!isset($_SESSION['user_id'])) { http_response_code(401); exit(json_encode(['status'=>false,'message'=>'Unauthorized'])); }
+            $student = $core->getStudentByUserId((int)$_SESSION['user_id']);
+            if (!$student) {
+                $response = ['status' => false, 'message' => 'Student record not found.'];
+                break;
+            }
+            $response = ['status' => true, 'data' => $core->getAvailableCourses((int)$student['id'])];
+            break;
+
+        case 'get_registered_courses':
+            if (!isset($_SESSION['user_id'])) { http_response_code(401); exit(json_encode(['status'=>false,'message'=>'Unauthorized'])); }
+            $student = $core->getStudentByUserId((int)$_SESSION['user_id']);
+            $response = ['status' => true, 'data' => $core->getRegisteredCourses((int)$student['id'])];
+            break;
+
+        case 'register_courses':
+            if (!isset($_SESSION['user_id'])) { http_response_code(401); exit(json_encode(['status'=>false,'message'=>'Unauthorized'])); }
+            $student = $core->getStudentByUserId((int)$_SESSION['user_id']);
+            $courseIds = $input['course_ids'] ?? [];
+            $response = $core->registerForCourses((int)$student['id'], $courseIds);
+            break;
+
+        /* ---- STUDENT BIODATA (for PDF) ---- */
+        case 'get_biodata':
+            if (!isset($_SESSION['user_id'])) { http_response_code(401); exit(json_encode(['status'=>false,'message'=>'Unauthorized'])); }
+            if (!empty($_GET['student_id'])) {
+                $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar', 'Department Officer']);
+                $biodata = $core->getStudentBiodata((int)$_GET['student_id']);
+            } else {
+                $student = $core->getStudentByUserId((int)$_SESSION['user_id']);
+                $biodata = $student ? $core->getStudentBiodata((int)$student['id']) : null;
+            }
+            $response = $biodata ? ['status' => true, 'data' => $biodata] : ['status' => false, 'message' => 'Biodata not found.'];
+            break;
+
+        case 'get_courses_for_session':
+            if (!isset($_SESSION['user_id'])) { http_response_code(401); exit(json_encode(['status'=>false,'message'=>'Unauthorized'])); }
+            $sid = (int)($_GET['student_id'] ?? 0);
+            $sesId = (int)($_GET['session_id'] ?? 0);
+            if (!$sid) {
+                $student = $core->getStudentByUserId((int)$_SESSION['user_id']);
+                $sid = (int)$student['id'];
+            }
+            if (!$sesId) $sesId = $core->getActiveSessionId();
+            $response = ['status' => true, 'data' => $core->getRegisteredCoursesForSession($sid, $sesId)];
+            break;
+
+        /* ---- CERTIFICATE MANAGEMENT (Admin) ---- */
+        case 'get_all_certificates':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $filters = [];
+            if (!empty($_GET['faculty_id'])) $filters['faculty_id'] = (int)$_GET['faculty_id'];
+            if (!empty($_GET['department_id'])) $filters['department_id'] = (int)$_GET['department_id'];
+            if (!empty($_GET['search'])) $filters['search'] = $_GET['search'];
+            $response = ['status' => true, 'data' => $core->getAllCertificates($filters)];
+            break;
+
+        case 'get_certificate_detail':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $cert = $core->getCertificateById((int)($_GET['id'] ?? $input['id'] ?? 0));
+            $response = $cert ? ['status' => true, 'data' => $cert] : ['status' => false, 'message' => 'Certificate not found.'];
+            break;
+
+        /* ---- PROGRAMME EDITING ---- */
+        case 'update_programme':
+            $core->enforcePermissions(['Super Administrator', 'Administrator', 'Registrar']);
+            $response = $core->updateProgramme((int)($input['id'] ?? 0), [
+                'name' => trim($input['name'] ?? ''),
+                'type' => $input['type'] ?? null,
+                'duration_years' => (int)($input['duration_years'] ?? 0),
+                'department_id' => (int)($input['department_id'] ?? 0),
+            ]);
             break;
 
         default:

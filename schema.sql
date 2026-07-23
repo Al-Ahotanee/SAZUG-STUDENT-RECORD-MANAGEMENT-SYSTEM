@@ -1,6 +1,7 @@
 -- ============================================================
 -- SAZUG Student Record Management System
--- Database Schema v2.0 — MySQL 8 | Normalized to 3NF
+-- Database Schema v2.1 — MySQL 8 | Normalized to 3NF
+-- Sa'adu Zungur University Gadau, Bauchi State, Nigeria
 -- ============================================================
 
 SET FOREIGN_KEY_CHECKS = 0;
@@ -54,7 +55,7 @@ CREATE TABLE IF NOT EXISTS `programmes` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `department_id` BIGINT UNSIGNED NOT NULL,
     `name` VARCHAR(100) NOT NULL,
-    `type` ENUM('Diploma','ND','HND','Degree','Masters','PhD') NOT NULL,
+    `type` ENUM('Undergraduate','Postgraduate','Masters','PhD') NOT NULL,
     `duration_years` INT DEFAULT 2,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`department_id`) REFERENCES `departments`(`id`) ON DELETE CASCADE,
@@ -118,6 +119,11 @@ CREATE TABLE IF NOT EXISTS `students` (
     `guardian_phone` VARCHAR(20) NULL,
     `guardian_address` TEXT NULL,
     `passport_path` VARCHAR(255) NULL,
+    `religion` VARCHAR(50) NULL,
+    `blood_group` VARCHAR(10) NULL,
+    `marital_status` ENUM('Single','Married','Divorced','Widowed') NULL,
+    `place_of_birth` VARCHAR(100) NULL,
+    `home_town` VARCHAR(100) NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
@@ -160,7 +166,37 @@ CREATE TABLE IF NOT EXISTS `course_registrations` (
     UNIQUE KEY `student_course_session` (`student_id`,`course_id`,`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. DOCUMENTS TABLE
+-- 10. REGISTRATION REQUESTS TABLE
+CREATE TABLE IF NOT EXISTS `registration_requests` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `request_type` ENUM('Student','Lecturer') NOT NULL,
+    `full_name` VARCHAR(150) NOT NULL,
+    `email` VARCHAR(150) NOT NULL,
+    `phone` VARCHAR(20) NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `username` VARCHAR(50) NOT NULL UNIQUE,
+    `gender` ENUM('Male','Female','Other') NULL,
+    `department_id` BIGINT UNSIGNED NULL,
+    `faculty_id` BIGINT UNSIGNED NULL,
+    `programme_id` BIGINT UNSIGNED NULL,
+    `qualification` VARCHAR(100) NULL,
+    `specialization` VARCHAR(150) NULL,
+    `staff_id` VARCHAR(30) NULL,
+    `additional_data` JSON NULL,
+    `status` ENUM('Pending','Approved','Rejected') DEFAULT 'Pending',
+    `reviewed_by` BIGINT UNSIGNED NULL,
+    `reviewed_at` DATETIME NULL,
+    `rejection_reason` TEXT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (`department_id`) REFERENCES `departments`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`faculty_id`) REFERENCES `faculties`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`programme_id`) REFERENCES `programmes`(`id`) ON DELETE SET NULL,
+    FOREIGN KEY (`reviewed_by`) REFERENCES `users`(`id`) ON DELETE SET NULL,
+    INDEX `idx_reg_status` (`status`),
+    INDEX `idx_reg_type` (`request_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 11. DOCUMENTS TABLE
 CREATE TABLE IF NOT EXISTS `documents` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `student_id` BIGINT UNSIGNED NOT NULL,
@@ -171,7 +207,7 @@ CREATE TABLE IF NOT EXISTS `documents` (
     FOREIGN KEY (`student_id`) REFERENCES `students`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. CERTIFICATES TABLE
+-- 12. CERTIFICATES TABLE
 CREATE TABLE IF NOT EXISTS `certificates` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `student_id` BIGINT UNSIGNED NOT NULL UNIQUE,
@@ -185,7 +221,7 @@ CREATE TABLE IF NOT EXISTS `certificates` (
     INDEX `idx_cert_number` (`certificate_number`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. AUDIT LOGS TABLE
+-- 13. AUDIT LOGS TABLE
 CREATE TABLE IF NOT EXISTS `audit_logs` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT UNSIGNED NULL,
@@ -231,18 +267,20 @@ INSERT IGNORE INTO `departments` (`id`, `faculty_id`, `name`, `code`) VALUES
 (8, 4, 'Architecture', 'ARC'),
 (9, 4, 'Estate Management', 'EST');
 
--- Sample Programmes
+-- Sample Programmes (University Degrees — no ND/HND)
 INSERT IGNORE INTO `programmes` (`id`, `department_id`, `name`, `type`, `duration_years`) VALUES
-(1, 1, 'Computer Engineering', 'HND', 2),
-(2, 1, 'Computer Engineering', 'ND', 2),
-(3, 2, 'Electrical/Electronics Engineering', 'HND', 2),
-(4, 2, 'Electrical/Electronics Engineering', 'ND', 2),
-(5, 4, 'Business Administration & Management', 'HND', 2),
-(6, 4, 'Business Administration & Management', 'ND', 2),
-(7, 5, 'Accountancy', 'HND', 2),
-(8, 5, 'Accountancy', 'ND', 2),
-(9, 6, 'Computer Science', 'Degree', 4),
-(10, 3, 'Civil Engineering', 'ND', 2);
+(1, 1, 'Computer Engineering', 'Undergraduate', 5),
+(2, 2, 'Electrical/Electronics Engineering', 'Undergraduate', 5),
+(3, 3, 'Civil Engineering', 'Undergraduate', 5),
+(4, 4, 'Business Administration', 'Undergraduate', 4),
+(5, 5, 'Accountancy', 'Undergraduate', 4),
+(6, 6, 'Computer Science', 'Undergraduate', 4),
+(7, 7, 'Statistics & Mathematics', 'Undergraduate', 4),
+(8, 8, 'Architecture', 'Undergraduate', 5),
+(9, 9, 'Estate Management', 'Undergraduate', 4),
+(10, 6, 'Computer Science', 'Postgraduate', 2),
+(11, 4, 'Business Administration', 'Masters', 2),
+(12, 6, 'Computer Science', 'Masters', 2);
 
 -- Academic Session
 INSERT IGNORE INTO `sessions` (`id`, `name`, `semester`, `is_active`, `start_date`, `end_date`) VALUES
@@ -250,5 +288,56 @@ INSERT IGNORE INTO `sessions` (`id`, `name`, `semester`, `is_active`, `start_dat
 (2, '2024/2025', 'Second', 0, '2025-02-01', '2025-06-30'),
 (3, '2025/2026', 'First', 0, '2025-09-01', '2026-01-31'),
 (4, '2026/2027', 'First', 1, '2026-09-01', '2027-01-31');
+
+-- Sample Courses for Computer Science Undergraduate (programme_id=6, department_id=6)
+-- Level 100 — First Semester
+INSERT IGNORE INTO `courses` (`id`, `programme_id`, `department_id`, `code`, `title`, `credit_units`, `level`, `semester`, `is_compulsory`) VALUES
+(1, 6, 6, 'CSC101', 'Introduction to Computer Science', 3, 100, 'First', 1),
+(2, 6, 6, 'CSC102', 'Introduction to Programming (C)', 3, 100, 'First', 1),
+(3, 6, 6, 'CSC103', 'Computer Hardware Fundamentals', 2, 100, 'First', 1),
+(4, 6, 6, 'MAT101', 'General Mathematics I', 3, 100, 'First', 1),
+(5, 6, 6, 'GST101', 'Use of English I', 2, 100, 'First', 1),
+-- Level 100 — Second Semester
+(6, 6, 6, 'CSC104', 'Introduction to Programming II (C++)', 3, 100, 'Second', 1),
+(7, 6, 6, 'CSC105', 'Digital Logic Design', 3, 100, 'Second', 1),
+(8, 6, 6, 'MAT102', 'General Mathematics II', 3, 100, 'Second', 1),
+(9, 6, 6, 'GST102', 'Use of English II', 2, 100, 'Second', 1),
+(10, 6, 6, 'PHY101', 'General Physics I', 3, 100, 'Second', 1),
+-- Level 200 — First Semester
+(11, 6, 6, 'CSC201', 'Data Structures & Algorithms', 3, 200, 'First', 1),
+(12, 6, 6, 'CSC202', 'Object-Oriented Programming (Java)', 3, 200, 'First', 1),
+(13, 6, 6, 'CSC203', 'Discrete Mathematics', 3, 200, 'First', 1),
+(14, 6, 6, 'CSC204', 'Computer Architecture', 3, 200, 'First', 1),
+(15, 6, 6, 'MAT201', 'Linear Algebra', 3, 200, 'First', 1),
+-- Level 200 — Second Semester
+(16, 6, 6, 'CSC205', 'Database Management Systems', 3, 200, 'Second', 1),
+(17, 6, 6, 'CSC206', 'Operating Systems I', 3, 200, 'Second', 1),
+(18, 6, 6, 'CSC207', 'Web Technologies (HTML/CSS/JS)', 3, 200, 'Second', 1),
+(19, 6, 6, 'CSC208', 'Probability & Statistics', 3, 200, 'Second', 1),
+(20, 6, 6, 'GST201', 'Nigerian Peoples & Culture', 2, 200, 'Second', 1),
+-- Level 300 — First Semester
+(21, 6, 6, 'CSC301', 'Software Engineering', 3, 300, 'First', 1),
+(22, 6, 6, 'CSC302', 'Computer Networks', 3, 300, 'First', 1),
+(23, 6, 6, 'CSC303', 'Design & Analysis of Algorithms', 3, 300, 'First', 1),
+(24, 6, 6, 'CSC304', 'Theory of Computation', 3, 300, 'First', 1),
+(25, 6, 6, 'MAT301', 'Numerical Methods', 3, 300, 'First', 1),
+-- Level 300 — Second Semester
+(26, 6, 6, 'CSC305', 'Operating Systems II', 3, 300, 'Second', 1),
+(27, 6, 6, 'CSC306', 'Compiler Construction', 3, 300, 'Second', 1),
+(28, 6, 6, 'CSC307', 'Artificial Intelligence', 3, 300, 'Second', 1),
+(29, 6, 6, 'CSC308', 'Web Programming (PHP/MySQL)', 3, 300, 'Second', 1),
+(30, 6, 6, 'CSC309', 'Technical Report Writing', 2, 300, 'Second', 1),
+-- Level 400 — First Semester
+(31, 6, 6, 'CSC401', 'Machine Learning', 3, 400, 'First', 1),
+(32, 6, 6, 'CSC402', 'Information Security', 3, 400, 'First', 1),
+(33, 6, 6, 'CSC403', 'Distributed Systems', 3, 400, 'First', 1),
+(34, 6, 6, 'CSC404', 'Cloud Computing', 2, 400, 'First', 1),
+(35, 6, 6, 'CSC405', 'Project Part I', 4, 400, 'First', 1),
+-- Level 400 — Second Semester
+(36, 6, 6, 'CSC406', 'Mobile Application Development', 3, 400, 'Second', 1),
+(37, 6, 6, 'CSC407', 'Data Science & Big Data', 3, 400, 'Second', 1),
+(38, 6, 6, 'CSC408', 'Entrepreneurship in IT', 2, 400, 'Second', 1),
+(39, 6, 6, 'CSC409', 'Project Part II', 6, 400, 'Second', 1),
+(40, 6, 6, 'CSC410', 'Seminar Presentation', 1, 400, 'Second', 1);
 
 SET FOREIGN_KEY_CHECKS = 1;

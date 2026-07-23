@@ -888,4 +888,406 @@ class SystemCore {
         $this->logAudit("User Account $status", 'users', $userId);
         return ['status' => true, 'message' => "User account set to $status."];
     }
+
+    /* =========================================================
+     * SELF-REGISTRATION (Students & Lecturers)
+     * ========================================================= */
+
+    public function submitRegistrationRequest(array $data): array {
+        // Validate required fields
+        $required = ['request_type','full_name','email','phone','username','password'];
+        foreach ($required as $f) {
+            if (empty($data[$f])) return ['status' => false, 'message' => "Field '$f' is required."];
+        }
+        if (strlen($data['password']) < 6) return ['status' => false, 'message' => 'Password must be at least 6 characters.'];
+        if (!in_array($data['request_type'], ['Student','Lecturer'])) return ['status' => false, 'message' => 'Invalid request type.'];
+
+        // Check username uniqueness in both users and registration_requests
+        $chk = $this->db->prepare("SELECT id FROM users WHERE username=:u UNION SELECT id FROM registration_requests WHERE username=:u");
+        $chk->execute(['u' => $data['username']]);
+        if ($chk->fetch()) return ['status' => false, 'message' => 'Username already taken.'];
+
+        // Check email uniqueness
+        $chkE = $this->db->prepare("SELECT id FROM users WHERE email=:e UNION SELECT id FROM registration_requests WHERE email=:e");
+        $chkE->execute(['e' => $data['email']]);
+        if ($chkE->fetch()) return ['status' => false, 'message' => 'Email already registered.'];
+
+        $insertData = [
+            'request_type' => $data['request_type'],
+            'full_name' => trim($data['full_name']),
+            'email' => trim($data['email']),
+            'phone' => trim($data['phone']),
+            'username' => trim($data['username']),
+            'password_hash' => password_hash($data['password'], PASSWORD_BCRYPT),
+            'gender' => $data['gender'] ?? null,
+            'department_id' => !empty($data['department_id']) ? (int)$data['department_id'] : null,
+            'faculty_id' => !empty($data['faculty_id']) ? (int)$data['faculty_id'] : null,
+            'programme_id' => !empty($data['programme_id']) ? (int)$data['programme_id'] : null,
+            'qualification' => $data['qualification'] ?? null,
+            'specialization' => $data['specialization'] ?? null,
+            'staff_id' => $data['staff_id'] ?? null,
+        ];
+
+        // Store additional student fields in JSON
+        $additionalData = [];
+        if ($data['request_type'] === 'Student') {
+            $additionalData = [
+                'dob' => $data['dob'] ?? null,
+                'state' => $data['state'] ?? null,
+                'lga' => $data['lga'] ?? null,
+                'nationality' => $data['nationality'] ?? 'Nigerian',
+                'religion' => $data['religion'] ?? null,
+                'marital_status' => $data['marital_status'] ?? null,
+                'place_of_birth' => $data['place_of_birth'] ?? null,
+                'home_town' => $data['home_town'] ?? null,
+                'guardian_name' => $data['guardian_name'] ?? null,
+                'guardian_phone' => $data['guardian_phone'] ?? null,
+            ];
+        }
+        $insertData['additional_data'] = json_encode($additionalData);
+
+        $id = $this->insert('registration_requests', $insertData);
+        return ['status' => true, 'message' => 'Registration submitted successfully. Your account is pending admin approval.', 'id' => $id];
+    }
+
+    public function getRegistrationRequests(string $status = 'Pending'): array {
+        $sql = "SELECT r.*, d.name AS department_name, f.name AS faculty_name, p.name AS programme_name, u.username AS reviewer_name
+                FROM registration_requests r
+                LEFT JOIN departments d ON r.department_id = d.id
+                LEFT JOIN faculties f ON r.faculty_id = f.id
+                LEFT JOIN programmes p ON r.programme_id = p.id
+                LEFT JOIN users u ON r.reviewed_by = u.id";
+        $params = [];
+        if ($status !== 'All') {
+            $sql .= " WHERE r.status = :st";
+            $params['st'] = $status;
+        }
+        $sql .= " ORDER BY r.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function approveRegistration(int $requestId, int $adminUserId): array {
+        $req = $this->fetchOne('registration_requests', $requestId);
+        if (!$req) return ['status' => false, 'message' => 'Registration request not found.'];
+        if ($req['status'] !== 'Pending') return ['status' => false, 'message' => 'This request has already been processed.'];
+
+        try {
+            $this->db->beginTransaction();
+            $additional = json_decode($req['additional_data'], true) ?: [];
+
+            if ($req['request_type'] === 'Student') {
+                // Generate admission number
+                $year = date('Y');
+                $count = (int)$this->db->query("SELECT COUNT(*) FROM students WHERE YEAR(admission_date)=YEAR(CURDATE())")->fetchColumn() + 1;
+                $admNum = 'SAZUG/' . $year . '/' . str_pad($count, 4, '0', STR_PAD_LEFT);
+
+                // Create user
+                $userId = $this->insert('users', [
+                    'username' => $req['username'],
+                    'email' => $req['email'],
+                    'password_hash' => $req['password_hash'],
+                    'role' => 'Student',
+                    'status' => 'Active',
+                ]);
+
+                // Get active session or first session
+                $sessionId = (int)$this->db->query("SELECT id FROM sessions WHERE is_active=1 LIMIT 1")->fetchColumn();
+                if (!$sessionId) $sessionId = (int)$this->db->query("SELECT id FROM sessions ORDER BY id LIMIT 1")->fetchColumn();
+
+                // Get programme duration to determine level
+                $prog = $this->fetchOne('programmes', (int)$req['programme_id']);
+                $duration = $prog['duration_years'] ?? 4;
+                $level = 100;
+
+                // Create student record
+                $studentData = [
+                    'user_id' => $userId,
+                    'admission_number' => $admNum,
+                    'full_name' => $req['full_name'],
+                    'dob' => $additional['dob'] ?? date('Y-m-d'),
+                    'gender' => $req['gender'] ?? 'Male',
+                    'phone' => $req['phone'],
+                    'department_id' => $req['department_id'],
+                    'faculty_id' => $req['faculty_id'],
+                    'programme_id' => $req['programme_id'],
+                    'level' => $level,
+                    'session_id' => $sessionId,
+                    'state' => $additional['state'] ?? 'Not Set',
+                    'lga' => $additional['lga'] ?? null,
+                    'nationality' => $additional['nationality'] ?? 'Nigerian',
+                    'religion' => $additional['religion'] ?? null,
+                    'marital_status' => $additional['marital_status'] ?? null,
+                    'place_of_birth' => $additional['place_of_birth'] ?? null,
+                    'home_town' => $additional['home_town'] ?? null,
+                    'guardian_name' => $additional['guardian_name'] ?? null,
+                    'guardian_phone' => $additional['guardian_phone'] ?? null,
+                    'admission_date' => date('Y-m-d'),
+                ];
+                $studentId = $this->insert('students', $studentData);
+                $this->logAudit('Student Registration Approved', 'registration_requests', $requestId, $req['full_name']);
+
+            } else {
+                // Lecturer
+                // Create user
+                $userId = $this->insert('users', [
+                    'username' => $req['username'],
+                    'email' => $req['email'],
+                    'password_hash' => $req['password_hash'],
+                    'role' => 'Lecturer',
+                    'status' => 'Active',
+                ]);
+
+                $this->insert('staff', [
+                    'user_id' => $userId,
+                    'staff_id' => $req['staff_id'],
+                    'full_name' => $req['full_name'],
+                    'email' => $req['email'],
+                    'phone' => $req['phone'],
+                    'department_id' => $req['department_id'],
+                    'qualification' => $req['qualification'],
+                    'specialization' => $req['specialization'],
+                    'gender' => $req['gender'],
+                    'date_joined' => date('Y-m-d'),
+                    'status' => 'Active',
+                ]);
+                $this->logAudit('Lecturer Registration Approved', 'registration_requests', $requestId, $req['full_name']);
+            }
+
+            // Mark request as approved
+            $this->update('registration_requests', $requestId, [
+                'status' => 'Approved',
+                'reviewed_by' => $adminUserId,
+                'reviewed_at' => date('Y-m-d H:i:s'),
+            ]);
+
+            $this->db->commit();
+            return ['status' => true, 'message' => ($req['request_type'] === 'Student' ? 'Student' : 'Lecturer') . ' approved and account created successfully.'];
+
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return ['status' => false, 'message' => 'Error: ' . $e->getMessage()];
+        }
+    }
+
+    public function rejectRegistration(int $requestId, int $adminUserId, string $reason = ''): array {
+        $req = $this->fetchOne('registration_requests', $requestId);
+        if (!$req) return ['status' => false, 'message' => 'Request not found.'];
+        if ($req['status'] !== 'Pending') return ['status' => false, 'message' => 'Already processed.'];
+
+        $this->update('registration_requests', $requestId, [
+            'status' => 'Rejected',
+            'reviewed_by' => $adminUserId,
+            'reviewed_at' => date('Y-m-d H:i:s'),
+            'rejection_reason' => $reason,
+        ]);
+        $this->logAudit('Registration Rejected', 'registration_requests', $requestId, $req['full_name']);
+        return ['status' => true, 'message' => 'Registration request rejected.'];
+    }
+
+    /* =========================================================
+     * COURSE REGISTRATION
+     * ========================================================= */
+
+    public function getAvailableCourses(int $studentId): array {
+        $student = $this->getStudentById($studentId);
+        if (!$student) return [];
+
+        $stmt = $this->db->prepare("
+            SELECT c.* FROM courses c
+            WHERE c.programme_id = :pid AND c.level = :lvl
+            AND c.id NOT IN (
+                SELECT course_id FROM course_registrations
+                WHERE student_id = :sid AND session_id = (SELECT id FROM sessions WHERE is_active=1 LIMIT 1)
+            )
+            ORDER BY c.semester, c.code
+        ");
+        $stmt->execute([
+            'pid' => $student['programme_id'],
+            'lvl' => $student['level'],
+            'sid' => $studentId,
+        ]);
+        return $stmt->fetchAll();
+    }
+
+    public function getRegisteredCourses(int $studentId): array {
+        $stmt = $this->db->prepare("
+            SELECT cr.*, c.code, c.title, c.credit_units, c.semester, c.level,
+                   ses.name AS session_name, ses.semester AS session_semester
+            FROM course_registrations cr
+            JOIN courses c ON cr.course_id = c.id
+            JOIN sessions ses ON cr.session_id = ses.id
+            WHERE cr.student_id = :sid
+            ORDER BY c.code
+        ");
+        $stmt->execute(['sid' => $studentId]);
+        return $stmt->fetchAll();
+    }
+
+    public function registerForCourses(int $studentId, array $courseIds): array {
+        if (empty($courseIds)) return ['status' => false, 'message' => 'No courses selected.'];
+
+        $sessionId = (int)$this->db->query("SELECT id FROM sessions WHERE is_active=1 LIMIT 1")->fetchColumn();
+        if (!$sessionId) return ['status' => false, 'message' => 'No active academic session set.'];
+
+        $student = $this->getStudentById($studentId);
+        if (!$student) return ['status' => false, 'message' => 'Student not found.'];
+
+        try {
+            $this->db->beginTransaction();
+            $registered = 0;
+
+            foreach ($courseIds as $cid) {
+                $cid = (int)$cid;
+
+                // Check not already registered
+                $chk = $this->db->prepare("SELECT id FROM course_registrations WHERE student_id=:sid AND course_id=:cid AND session_id=:ses");
+                $chk->execute(['sid' => $studentId, 'cid' => $cid, 'ses' => $sessionId]);
+                if ($chk->fetch()) continue;
+
+                // Verify course belongs to student's programme/level
+                $course = $this->db->prepare("SELECT * FROM courses WHERE id=:cid AND programme_id=:pid AND level=:lvl");
+                $course->execute(['cid' => $cid, 'pid' => $student['programme_id'], 'lvl' => $student['level']]);
+                if (!$course->fetch()) continue;
+
+                $this->insert('course_registrations', [
+                    'student_id' => $studentId,
+                    'course_id' => $cid,
+                    'session_id' => $sessionId,
+                ]);
+                $registered++;
+            }
+
+            $this->db->commit();
+            $this->logAudit("Registered for $registered courses", 'course_registrations', $studentId);
+            return ['status' => true, 'message' => "$registered course(s) registered successfully.", 'count' => $registered];
+
+        } catch (Exception $e) {
+            $this->db->rollBack();
+            return ['status' => false, 'message' => 'Error: ' . $e->getMessage()];
+        }
+    }
+
+    public function getStudentBiodata(int $studentId): array {
+        $stmt = $this->db->prepare("
+            SELECT s.*, d.name AS department_name, d.code AS department_code,
+                   f.name AS faculty_name, f.code AS faculty_code,
+                   p.name AS programme_name, p.type AS programme_type, p.duration_years,
+                   ses.name AS session_name, ses.semester AS session_semester,
+                   u.email AS student_email,
+                   (SELECT COUNT(*) FROM course_registrations WHERE student_id=s.id AND session_id=(SELECT id FROM sessions WHERE is_active=1 LIMIT 1)) AS registered_courses,
+                   (SELECT SUM(c.credit_units) FROM course_registrations cr JOIN courses c ON cr.course_id=c.id WHERE cr.student_id=s.id AND cr.session_id=(SELECT id FROM sessions WHERE is_active=1 LIMIT 1)) AS total_credit_units
+            FROM students s
+            JOIN departments d ON s.department_id=d.id
+            JOIN faculties f ON s.faculty_id=f.id
+            JOIN programmes p ON s.programme_id=p.id
+            JOIN sessions ses ON s.session_id=ses.id
+            JOIN users u ON s.user_id=u.id
+            WHERE s.id=:id LIMIT 1
+        ");
+        $stmt->execute(['id' => $studentId]);
+        return $stmt->fetch() ?: [];
+    }
+
+    public function getRegisteredCoursesForSession(int $studentId, int $sessionId): array {
+        $stmt = $this->db->prepare("
+            SELECT c.code, c.title, c.credit_units, c.level, c.semester, c.is_compulsory
+            FROM course_registrations cr
+            JOIN courses c ON cr.course_id=c.id
+            WHERE cr.student_id=:sid AND cr.session_id=:ses
+            ORDER BY c.semester, c.code
+        ");
+        $stmt->execute(['sid' => $studentId, 'ses' => $sessionId]);
+        return $stmt->fetchAll();
+    }
+
+    public function getActiveSessionId(): int {
+        return (int)$this->db->query("SELECT id FROM sessions WHERE is_active=1 LIMIT 1")->fetchColumn();
+    }
+
+    /* =========================================================
+     * CERTIFICATE MANAGEMENT (Admin)
+     * ========================================================= */
+
+    public function getAllCertificates(array $filters = []): array {
+        $where = [];
+        $params = [];
+
+        if (!empty($filters['faculty_id'])) {
+            $where[] = 's.faculty_id = :fid';
+            $params['fid'] = (int)$filters['faculty_id'];
+        }
+        if (!empty($filters['department_id'])) {
+            $where[] = 's.department_id = :did';
+            $params['did'] = (int)$filters['department_id'];
+        }
+        if (!empty($filters['search'])) {
+            $where[] = '(s.full_name LIKE :search OR c.certificate_number LIKE :search OR s.matric_number LIKE :search)';
+            $params['search'] = '%' . $filters['search'] . '%';
+        }
+
+        $whereSQL = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+        $stmt = $this->db->prepare("
+            SELECT c.*, s.full_name, s.matric_number, s.admission_number, s.passport_path,
+                   p.name AS programme_name, p.type AS programme_type,
+                   d.name AS department_name, f.name AS faculty_name, ses.name AS session_name,
+                   u_s.full_name AS issued_by_name
+            FROM certificates c
+            JOIN students s ON c.student_id=s.id
+            JOIN programmes p ON s.programme_id=p.id
+            JOIN departments d ON s.department_id=d.id
+            JOIN faculties f ON s.faculty_id=f.id
+            JOIN sessions ses ON s.session_id=ses.id
+            LEFT JOIN users u_s ON c.issued_by=u_s.id
+            $whereSQL
+            ORDER BY c.created_at DESC
+        ");
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    public function getCertificateById(int $id): ?array {
+        $stmt = $this->db->prepare("
+            SELECT c.*, s.full_name, s.matric_number, s.admission_number, s.dob, s.gender, s.passport_path,
+                   s.graduation_date, s.nationality, s.state, s.lga, s.address, s.religion, s.marital_status, s.place_of_birth, s.home_town,
+                   p.name AS programme_name, p.type AS programme_type, p.duration_years,
+                   d.name AS department_name, d.code AS department_code,
+                   f.name AS faculty_name, f.code AS faculty_code,
+                   ses.name AS session_name
+            FROM certificates c
+            JOIN students s ON c.student_id=s.id
+            JOIN programmes p ON s.programme_id=p.id
+            JOIN departments d ON s.department_id=d.id
+            JOIN faculties f ON s.faculty_id=f.id
+            JOIN sessions ses ON s.session_id=ses.id
+            WHERE c.id=:id LIMIT 1
+        ");
+        $stmt->execute(['id' => $id]);
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
+    public function getProgrammeById(int $id): ?array {
+        $stmt = $this->db->prepare("
+            SELECT p.*, d.name AS department_name, f.name AS faculty_name
+            FROM programmes p
+            JOIN departments d ON p.department_id=d.id
+            JOIN faculties f ON d.faculty_id=f.id
+            WHERE p.id=:id LIMIT 1
+        ");
+        $stmt->execute(['id' => $id]);
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
+    public function updateProgramme(int $id, array $data): array {
+        $allowed = ['department_id','name','type','duration_years'];
+        $filtered = array_intersect_key($data, array_flip($allowed));
+        if (empty($filtered)) return ['status' => false, 'message' => 'No valid fields to update.'];
+        $success = $this->update('programmes', $id, $filtered);
+        $this->logAudit('Programme Updated', 'programmes', $id);
+        return ['status' => $success, 'message' => $success ? 'Programme updated.' : 'Failed.'];
+    }
 }

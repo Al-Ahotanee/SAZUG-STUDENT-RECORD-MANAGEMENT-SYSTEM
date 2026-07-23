@@ -121,6 +121,18 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
 .section-header-left p{font-size:.82rem;color:#94a3b8;margin:4px 0 0}
 /* ===== RESPONSIVE ===== */
 @media(max-width:900px){.sidebar{position:fixed;top:0;left:0;bottom:0;z-index:1000;transform:translateX(-100%);transition:transform .3s}.sidebar.mobile-open{transform:translateX(0)}.sidebar.collapsed{width:268px;transform:translateX(-100%)}.sidebar.collapsed.mobile-open{transform:translateX(0)}.main-area{width:100%}}
+/* ===== REQUEST TABLE ===== */
+.request-table{font-size:.85rem;border-collapse:collapse}
+.request-table thead th{font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;white-space:nowrap}
+.request-table tbody td{vertical-align:middle;padding:12px 14px;border-bottom:1px solid #f0f4f8}
+.request-table tbody tr:hover{background:#f8fafc}
+/* ===== TYPE BADGE ===== */
+.type-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:20px;font-size:.74rem;font-weight:700;white-space:nowrap}
+/* ===== CERT TABLE ===== */
+.cert-table{font-size:.85rem;border-collapse:collapse}
+.cert-table thead th{font-weight:700;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;white-space:nowrap}
+.cert-table tbody td{vertical-align:middle;padding:12px 14px;border-bottom:1px solid #f0f4f8}
+.cert-table tbody tr:hover{background:#f8fafc}
 </style>
 </head>
 <body>
@@ -172,6 +184,17 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
             <span class="nav-text">Sessions</span>
         </button>
         <?php endif; ?>
+        <div class="sidebar-section">Manage</div>
+        <button class="nav-item-btn" data-view="regrequests" onclick="showView('regrequests',this)">
+            <span class="nav-icon"><i class="fas fa-user-check"></i></span>
+            <span class="nav-text">Registration Approvals</span>
+            <span class="nav-badge" id="pendingCountBadge" style="display:none">0</span>
+        </button>
+        <div class="sidebar-section">Management</div>
+        <button class="nav-item-btn" data-view="certmanage" onclick="showView('certmanage',this)">
+            <span class="nav-icon"><i class="fas fa-certificate"></i></span>
+            <span class="nav-text">Certificate Management</span>
+        </button>
         <?php if($isAdmin): ?>
         <div class="sidebar-section">Administration</div>
         <button class="nav-item-btn" data-view="staff" onclick="showView('staff',this)">
@@ -517,6 +540,75 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
             </div>
         </div>
 
+        <!-- ========== REGISTRATION APPROVALS ========== -->
+        <div class="spa-view" id="view-regrequests">
+            <div class="section-header">
+                <div class="section-header-left"><h3>Registration Approvals</h3><p>Review and manage pending registration requests</p></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadRegistrationRequests(currentRegFilter)"><i class="fas fa-sync me-1"></i>Refresh</button>
+                </div>
+            </div>
+            <div class="table-card mb-4">
+                <div class="table-card-header">
+                    <div class="d-flex gap-2 flex-wrap" id="regFilterTabs">
+                        <button class="btn btn-sm btn-primary rounded-pill px-3" onclick="filterRegRequests('Pending',this)">Pending</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="filterRegRequests('Approved',this)">Approved</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="filterRegRequests('Rejected',this)">Rejected</button>
+                        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="filterRegRequests('All',this)">All</button>
+                    </div>
+                    <span class="text-muted" style="font-size:.8rem" id="regRequestCount"></span>
+                </div>
+            </div>
+            <div class="table-card">
+                <div class="table-card-body">
+                    <div class="table-responsive">
+                        <table class="request-table table table-hover mb-0" style="width:100%">
+                            <thead style="background:#f8fafc"><tr>
+                                <th class="ps-4">Type</th><th>Full Name</th><th>Username</th><th>Email</th><th>Phone</th><th>Department</th><th>Programme</th><th>Date Applied</th><th class="text-end pe-4">Actions</th>
+                            </tr></thead>
+                            <tbody id="regRequestsBody"><tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========== CERTIFICATE MANAGEMENT ========== -->
+        <div class="spa-view" id="view-certmanage">
+            <div class="section-header">
+                <div class="section-header-left"><h3>Certificate Management</h3><p>View and manage all issued certificates</p></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="loadCertificates()"><i class="fas fa-sync me-1"></i>Refresh</button>
+                </div>
+            </div>
+            <div class="table-card mb-4">
+                <div class="table-card-header">
+                    <span class="table-card-title"><i class="fas fa-filter me-2 text-muted"></i>Filter Certificates</span>
+                    <span class="text-muted" style="font-size:.8rem" id="certTotalCount">Loading count...</span>
+                </div>
+                <div class="p-3 pb-2">
+                    <div class="row g-2">
+                        <div class="col-md-4"><input type="text" class="form-ctrl w-100" id="certSearch" placeholder="Search name, cert number, matric..." oninput="debounce(loadCertificates,400)()"></div>
+                        <div class="col-md-3"><select class="form-ctrl w-100" id="certFilterFaculty" onchange="loadCertificates()"><option value="">All Faculties</option></select></div>
+                        <div class="col-md-3"><select class="form-ctrl w-100" id="certFilterDept" onchange="loadCertificates()"><option value="">All Departments</option></select></div>
+                        <div class="col-md-2"><button class="btn btn-sm btn-outline-secondary w-100 rounded-pill" onclick="document.getElementById('certSearch').value='';document.getElementById('certFilterFaculty').value='';document.getElementById('certFilterDept').value='';loadCertificates()"><i class="fas fa-times me-1"></i>Clear</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="table-card">
+                <div class="table-card-body">
+                    <div class="table-responsive">
+                        <table class="cert-table table table-hover mb-0" style="width:100%">
+                            <thead style="background:#f8fafc"><tr>
+                                <th class="ps-4">Certificate No</th><th>Student Name</th><th>Matric No</th><th>Programme</th><th>Department</th><th>Faculty</th><th>Issue Date</th><th class="text-end pe-4">Actions</th>
+                            </tr></thead>
+                            <tbody id="certsBody"><tr><td colspan="8" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div><!-- end content-area -->
 </div><!-- end main-area -->
 </div><!-- end app-wrapper -->
@@ -585,6 +677,20 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
 </div>
 </div></div></div>
 
+<!-- ========== CERTIFICATE DETAIL MODAL ========== -->
+<div class="modal fade" id="certDetailModal" tabindex="-1">
+<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+<div class="modal-content">
+<div class="modal-header" style="background:linear-gradient(135deg,#0a2540,#1e3a5f);color:#fff">
+    <h5 class="modal-title fw-bold"><i class="fas fa-certificate me-2"></i>Certificate Details</h5>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body p-0" id="certDetailContent"></div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary rounded-pill ms-auto px-4" data-bs-dismiss="modal">Close</button>
+</div>
+</div></div></div>
+
 <!-- ========== GENERIC MODALS ========== -->
 <div class="modal fade" id="facultyModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
 <div class="modal-header"><h5 class="modal-title fw-bold" id="facultyModalTitle">Add Faculty</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
@@ -609,12 +715,13 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
 </div></div></div>
 
 <div class="modal fade" id="progModal" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
-<div class="modal-header"><h5 class="modal-title fw-bold">Add Programme</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+<div class="modal-header"><h5 class="modal-title fw-bold" id="progModalTitle">Add Programme</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
+    <input type="hidden" id="progId">
     <div class="mb-3"><label class="form-label-sm">Department *</label><select class="form-ctrl w-100" id="prog_dept" required><option value="">Select Dept</option></select></div>
     <div class="mb-3"><label class="form-label-sm">Programme Name *</label><input class="form-ctrl w-100" id="prog_name" placeholder="Programme name" required></div>
-    <div class="mb-3"><label class="form-label-sm">Type *</label><select class="form-ctrl w-100" id="prog_type" required><option>ND</option><option>HND</option><option>Diploma</option><option>Degree</option><option>Masters</option><option>PhD</option></select></div>
-    <div class="mb-3"><label class="form-label-sm">Duration (years) *</label><input type="number" class="form-ctrl w-100" id="prog_dur" value="2" min="1" max="7" required></div>
+    <div class="mb-3"><label class="form-label-sm">Type *</label><select class="form-ctrl w-100" id="prog_type" required><option>Undergraduate</option><option>Postgraduate</option><option>Masters</option><option>PhD</option></select></div>
+    <div class="mb-3"><label class="form-label-sm">Duration (years) *</label><input type="number" class="form-ctrl w-100" id="prog_dur" value="4" min="1" max="7" required></div>
 </div>
 <div class="modal-footer"><button class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary rounded-pill px-4" onclick="saveProgramme()">Save</button></div>
 </div></div></div>
@@ -719,6 +826,8 @@ function loadView(viewId) {
         case 'staff':       loadStaff(); break;
         case 'users':       loadUsers(); break;
         case 'audit':       loadAuditLogs(); break;
+        case 'regrequests': loadRegistrationRequests('Pending'); updatePendingCount(); break;
+        case 'certmanage':  loadCertificates(); break;
     }
 }
 function refreshCurrentView() {
@@ -1069,18 +1178,46 @@ async function loadProgrammes() {
             <td>${p.department_name}</td>
             <td>${p.faculty_name}</td>
             <td>${p.duration_years} yr(s)</td>
-            <td class="text-end pe-4"><button class="btn btn-sm btn-outline-danger" style="border-radius:8px" onclick="deleteProgramme(${p.id})"><i class="fas fa-trash"></i></button></td>
+            <td class="text-end pe-4">
+                <div class="d-flex gap-1 justify-content-end">
+                    <button class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px" onclick="editProgramme(${p.id})"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger" style="border-radius:8px;padding:4px 10px" onclick="deleteProgramme(${p.id})"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
         </tr>`).join('') || '<tr><td colspan="6" class="text-center py-4 text-muted">No programmes</td></tr>';
 }
 async function showAddProgramme() {
     const deps=await apiGet('get_departments');
     const sel=document.getElementById('prog_dept');
     sel.innerHTML='<option value="">Select Department</option>'+(deps.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+    document.getElementById('progId').value='';
+    document.getElementById('progModalTitle').textContent='Add Programme';
     document.getElementById('prog_name').value='';
+    document.getElementById('prog_type').value='Undergraduate';
+    document.getElementById('prog_dur').value='4';
+    new bootstrap.Modal(document.getElementById('progModal')).show();
+}
+async function editProgramme(id) {
+    const res = await apiGet('get_programmes');
+    if (!res.status) return;
+    const p = (res.data||[]).find(x => x.id == id);
+    if (!p) { toast('error','Programme not found'); return; }
+    const deps=await apiGet('get_departments');
+    const sel=document.getElementById('prog_dept');
+    sel.innerHTML='<option value="">Select Department</option>'+(deps.data||[]).map(d=>`<option value="${d.id}"${d.id==p.department_id?' selected':''}>${d.name}</option>`).join('');
+    document.getElementById('progId').value = p.id;
+    document.getElementById('progModalTitle').textContent = 'Edit Programme';
+    document.getElementById('prog_name').value = p.name;
+    document.getElementById('prog_type').value = p.type;
+    document.getElementById('prog_dur').value = p.duration_years;
     new bootstrap.Modal(document.getElementById('progModal')).show();
 }
 async function saveProgramme(){
-    const res=await api('create_programme',{department_id:document.getElementById('prog_dept').value,name:document.getElementById('prog_name').value,type:document.getElementById('prog_type').value,duration_years:document.getElementById('prog_dur').value});
+    const id = document.getElementById('progId').value;
+    const data = {department_id:document.getElementById('prog_dept').value,name:document.getElementById('prog_name').value,type:document.getElementById('prog_type').value,duration_years:document.getElementById('prog_dur').value};
+    const action = id ? 'update_programme' : 'create_programme';
+    if (id) data.id = id;
+    const res = await api(action, data);
     toast(res.status?'success':'error',res.message);
     if(res.status){bootstrap.Modal.getInstance(document.getElementById('progModal'))?.hide();loadProgrammes();}
 }
@@ -1267,9 +1404,212 @@ async function populateFilterDept(){
     if(sel&&res.data) sel.innerHTML='<option value="">All Departments</option>'+(res.data||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
 }
 
+// ===== REGISTRATION APPROVALS =====
+let currentRegFilter = 'Pending';
+
+function filterRegRequests(status, btn) {
+    currentRegFilter = status;
+    document.querySelectorAll('#regFilterTabs button').forEach(b => {
+        b.className = 'btn btn-sm btn-outline-secondary rounded-pill px-3';
+    });
+    if (btn) btn.className = 'btn btn-sm btn-primary rounded-pill px-3';
+    loadRegistrationRequests(status);
+}
+
+async function loadRegistrationRequests(status) {
+    const param = status && status !== 'All' ? {status} : {};
+    const res = await apiGet('get_registration_requests', param);
+    if (!res.status) return;
+    const data = res.data || [];
+    document.getElementById('regRequestCount').textContent = data.length + ' request(s)';
+    const body = document.getElementById('regRequestsBody');
+    if (data.length === 0) {
+        body.innerHTML = '<tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-inbox me-2"></i>No requests found</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(r => {
+        const typeBadge = r.request_type === 'Student'
+            ? '<span class="type-badge" style="background:#dbeafe;color:#1d4ed8"><i class="fas fa-user-graduate me-1"></i>Student</span>'
+            : '<span class="type-badge" style="background:#dcfce7;color:#15803d"><i class="fas fa-chalkboard-teacher me-1"></i>Lecturer</span>';
+        let actions = '';
+        if (r.status === 'Pending') {
+            actions = `<button class="btn btn-sm btn-primary rounded-pill px-3" onclick="approveRequest(${r.id})"><i class="fas fa-check me-1"></i>Approve</button>
+                <button class="btn btn-sm btn-outline-warning rounded-pill px-3" onclick="rejectRequest(${r.id})"><i class="fas fa-times me-1"></i>Reject</button>`;
+        } else if (r.status === 'Rejected' && r.rejection_reason) {
+            actions = `<small class="text-muted" title="${r.rejection_reason}"><i class="fas fa-comment-slash me-1"></i>${r.rejection_reason.length > 30 ? r.rejection_reason.substring(0,30)+'...' : r.rejection_reason}</small>`;
+        } else {
+            actions = `<span class="text-muted" style="font-size:.8rem">${r.status}</span>`;
+        }
+        return `<tr>
+            <td class="ps-4">${typeBadge}</td>
+            <td class="fw-600">${r.full_name}</td>
+            <td><code>${r.username}</code></td>
+            <td>${r.email||'—'}</td>
+            <td>${r.phone||'—'}</td>
+            <td>${r.department_name||'—'}</td>
+            <td>${r.programme_name||'—'}</td>
+            <td style="font-size:.82rem">${new Date(r.created_at).toLocaleDateString('en-GB')}</td>
+            <td class="text-end pe-4"><div class="d-flex gap-1 justify-content-end">${actions}</div></td>
+        </tr>`;
+    }).join('');
+}
+
+async function approveRequest(id) {
+    const res = await api('approve_registration', {id});
+    toast(res.status ? 'success' : 'error', res.message || 'Approval failed');
+    if (res.status) {
+        loadRegistrationRequests(currentRegFilter);
+        updatePendingCount();
+    }
+}
+
+async function rejectRequest(id) {
+    const {value: reason} = await Swal.fire({
+        title: 'Reject Registration',
+        input: 'textarea',
+        inputLabel: 'Please provide a reason for rejection',
+        inputPlaceholder: 'Enter rejection reason...',
+        inputValidator: (val) => !val && 'A reason is required',
+        showCancelButton: true,
+        confirmButtonText: 'Reject',
+        confirmButtonColor: '#f97316',
+    });
+    if (!reason) return;
+    const res = await api('reject_registration', {id, reason});
+    toast(res.status ? 'success' : 'error', res.message || 'Rejection failed');
+    if (res.status) {
+        loadRegistrationRequests(currentRegFilter);
+        updatePendingCount();
+    }
+}
+
+async function updatePendingCount() {
+    try {
+        const res = await apiGet('get_registration_requests', {status: 'Pending'});
+        const count = (res.data || []).length;
+        const badge = document.getElementById('pendingCountBadge');
+        if (badge) {
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline' : 'none';
+        }
+    } catch(e) {}
+}
+
+// ===== CERTIFICATE MANAGEMENT =====
+async function loadCertificates() {
+    const search = document.getElementById('certSearch')?.value || '';
+    const faculty = document.getElementById('certFilterFaculty')?.value || '';
+    const dept = document.getElementById('certFilterDept')?.value || '';
+    const params = {};
+    if (search) params.search = search;
+    if (faculty) params.faculty_id = faculty;
+    if (dept) params.department_id = dept;
+    const res = await apiGet('get_all_certificates', params);
+    if (!res.status) return;
+    const data = res.data || [];
+    document.getElementById('certTotalCount').textContent = data.length + ' certificate(s)';
+    const body = document.getElementById('certsBody');
+    if (data.length === 0) {
+        body.innerHTML = '<tr><td colspan="8" class="text-center py-5 text-muted"><i class="fas fa-file-alt me-2"></i>No certificates found</td></tr>';
+        return;
+    }
+    body.innerHTML = data.map(c => `
+        <tr>
+            <td class="ps-4"><code>${c.certificate_number||'—'}</code></td>
+            <td class="fw-600">${c.student_name||c.full_name||'—'}</td>
+            <td><code style="font-size:.8rem">${c.matric_number||'—'}</code></td>
+            <td>${c.programme_name||'—'}</td>
+            <td>${c.department_name||'—'}</td>
+            <td>${c.faculty_name||'—'}</td>
+            <td style="font-size:.82rem">${c.issue_date||'—'}</td>
+            <td class="text-end pe-4">
+                <div class="d-flex gap-1 justify-content-end">
+                    <button class="btn btn-sm btn-outline-primary" style="border-radius:8px;padding:4px 10px" onclick="viewCertificate(${c.id})"><i class="fas fa-eye"></i></button>
+                    <button class="btn btn-sm btn-outline-secondary" style="border-radius:8px;padding:4px 10px" onclick="window.open('generate_pdf.php?type=certificate&cert_id=${c.id}','_blank')"><i class="fas fa-print"></i></button>
+                    <a class="btn btn-sm btn-outline-info" style="border-radius:8px;padding:4px 10px" href="generate_pdf.php?type=certificate&cert_id=${c.id}" target="_blank"><i class="fas fa-download"></i></a>
+                </div>
+            </td>
+        </tr>`).join('');
+    populateCertFilters(data);
+}
+
+function populateCertFilters(data) {
+    const faculties = [...new Set(data.map(c => c.faculty_name).filter(Boolean))];
+    const facSel = document.getElementById('certFilterFaculty');
+    if (facSel && facSel.options.length <= 1) {
+        facSel.innerHTML = '<option value="">All Faculties</option>' + faculties.map(f => `<option value="${f}">${f}</option>`).join('');
+    }
+    facSel?.removeEventListener?.('change', certFacultyChangeHandler);
+    facSel?.addEventListener('change', certFacultyChangeHandler);
+    const deptSel = document.getElementById('certFilterDept');
+    if (deptSel && deptSel.options.length <= 1) {
+        const depts = [...new Set(data.map(c => c.department_name).filter(Boolean))];
+        deptSel.innerHTML = '<option value="">All Departments</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+    }
+}
+function certFacultyChangeHandler() {
+    const faculty = document.getElementById('certFilterFaculty').value;
+    const deptSel = document.getElementById('certFilterDept');
+    if (!deptSel) return;
+    deptSel.innerHTML = '<option value="">All Departments</option>';
+    if (!faculty) return;
+    document.querySelectorAll('.cert-table tbody tr').forEach(row => {
+        const facCell = row.cells[5];
+        if (facCell && facCell.textContent.trim() === faculty) {
+            const deptCell = row.cells[4];
+            if (deptCell) {
+                const dept = deptCell.textContent.trim();
+                if (dept && !deptSel.querySelector(`option[value="${dept}"]`)) {
+                    deptSel.innerHTML += `<option value="${dept}">${dept}</option>`;
+                }
+            }
+        }
+    });
+}
+
+async function viewCertificate(id) {
+    const res = await apiGet('get_certificate_detail', {id});
+    if (!res.status) { toast('error', 'Certificate not found'); return; }
+    const c = res.data;
+    const content = document.getElementById('certDetailContent');
+    content.innerHTML = `
+    <div style="padding:24px">
+        <div class="row g-4">
+            <div class="col-md-3 text-center">
+                <div style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:2.5rem;color:#fff;margin:0 auto 12px">
+                    <i class="fas fa-certificate"></i>
+                </div>
+                <div class="fw-bold">${c.certificate_number||'—'}</div>
+                <div class="text-muted" style="font-size:.8rem">Certificate</div>
+            </div>
+            <div class="col-md-9">
+                <div class="row g-2">
+                    ${[
+                        ['Certificate No.',c.certificate_number||'—'],
+                        ['Student Name',c.student_name||c.full_name||'—'],
+                        ['Matric Number',c.matric_number||'—'],
+                        ['Admission No.',c.admission_number||'—'],
+                        ['Programme',c.programme_name||'—'],
+                        ['Department',c.department_name||'—'],
+                        ['Faculty',c.faculty_name||'—'],
+                        ['Issue Date',c.issue_date||'—'],
+                        ['Class of Degree',c.class_of_degree||'—'],
+                    ].map(([l,v])=>`<div class="col-6"><div class="p-2 rounded" style="background:#f8fafc"><div style="font-size:.72rem;color:#94a3b8">${l}</div><div style="font-size:.88rem;font-weight:600">${v}</div></div></div>`).join('')}
+                </div>
+                <div class="mt-3 d-flex gap-2">
+                    <button class="btn btn-sm btn-primary rounded-pill" onclick="window.open('generate_pdf.php?type=certificate&cert_id=${c.id}','_blank')"><i class="fas fa-print me-1"></i>Print</button>
+                    <a class="btn btn-sm btn-outline-primary rounded-pill" href="generate_pdf.php?type=certificate&cert_id=${c.id}" target="_blank"><i class="fas fa-download me-1"></i>Download PDF</a>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    new bootstrap.Modal(document.getElementById('certDetailModal')).show();
+}
+
 // ===== INIT =====
 populateFilterDept();
 loadDashboard();
+updatePendingCount();
 </script>
 </body>
 </html>

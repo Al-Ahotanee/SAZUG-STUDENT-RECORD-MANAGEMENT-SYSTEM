@@ -395,6 +395,80 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
             .login-panel-left { display: none; }
             .hero-card-float { display: none; }
         }
+
+        /* ===== REGISTRATION MODAL ===== */
+        .modal-register .modal-content {
+            border: none; border-radius: 24px; overflow: hidden;
+            box-shadow: 0 40px 100px rgba(0,0,0,.25); max-width: 640px; margin: 0 auto;
+        }
+        .modal-register .modal-dialog {
+            max-width: 640px;
+        }
+        .register-header {
+            background: linear-gradient(160deg, var(--primary-dark) 0%, var(--primary) 60%, #3b82f6 100%);
+            padding: 28px 32px; color: #fff; position: relative; overflow: hidden;
+        }
+        .register-header::before {
+            content: ''; position: absolute; width: 250px; height: 250px;
+            background: radial-gradient(circle, rgba(255,255,255,.08), transparent);
+            right: -60px; top: -60px; border-radius: 50%;
+        }
+        .register-body { padding: 28px 32px 32px; background: #fff; max-height: 70vh; overflow-y: auto; }
+        .register-tabs {
+            display: flex; gap: 0; margin-bottom: 24px; border-radius: 12px; overflow: hidden; border: 2px solid #e2e8f0;
+        }
+        .register-tab {
+            flex: 1; padding: 12px 16px; text-align: center; font-weight: 600; font-size: .88rem;
+            cursor: pointer; transition: all .25s; background: #f8fafc; color: #64748b; border: none;
+        }
+        .register-tab:not(:last-child) { border-right: 2px solid #e2e8f0; }
+        .register-tab.active {
+            background: var(--primary); color: #fff;
+        }
+        .register-tab:hover:not(.active) { background: #eef2ff; color: var(--primary); }
+        .register-form-group { margin-bottom: 14px; }
+        .register-form-group label {
+            display: block; font-weight: 600; font-size: .82rem; color: #374151; margin-bottom: 5px;
+        }
+        .register-form-group .form-control,
+        .register-form-group .form-select {
+            background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 10px;
+            padding: 11px 14px; font-size: .9rem; transition: all .25s; width: 100%;
+        }
+        .register-form-group .form-control:focus,
+        .register-form-group .form-select:focus {
+            border-color: var(--primary); background: #fff;
+            box-shadow: 0 0 0 3px rgba(15,52,96,.08); outline: none;
+        }
+        .register-form-row {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+        }
+        .btn-register-submit {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: #fff; border: none; border-radius: 12px; padding: 13px;
+            font-weight: 700; font-size: .95rem; width: 100%; transition: all .3s;
+        }
+        .btn-register-submit:hover { opacity: .92; transform: translateY(-1px); }
+        .btn-register-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+        .btn-create-account-link {
+            background: none; border: 2px solid var(--primary); color: var(--primary);
+            border-radius: 12px; padding: 11px; font-weight: 600; font-size: .9rem;
+            width: 100%; transition: all .3s; cursor: pointer;
+        }
+        .btn-create-account-link:hover { background: var(--primary); color: #fff; }
+        .register-divider {
+            display: flex; align-items: center; gap: 12px; margin: 18px 0;
+            color: #94a3b8; font-size: .8rem;
+        }
+        .register-divider::before,
+        .register-divider::after {
+            content: ''; flex: 1; height: 1px; background: #e2e8f0;
+        }
+        @media (max-width: 576px) {
+            .register-form-row { grid-template-columns: 1fr; gap: 0; }
+            .register-body { padding: 20px 18px 24px; }
+            .modal-register .modal-dialog { margin: 8px; }
+        }
     </style>
 </head>
 <body>
@@ -925,7 +999,11 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
                             <i class="fas fa-sign-in-alt me-2"></i>Sign In Securely
                         </button>
                     </form>
-                    <div class="mt-4 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0">
+                    <div class="register-divider">or</div>
+                    <button type="button" class="btn-create-account-link" id="openRegisterModalBtn" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#registerModal">
+                        <i class="fas fa-user-plus me-2"></i>Create Account
+                    </button>
+                    <div class="mt-3 p-3 rounded-3" style="background:#f8fafc;border:1px solid #e2e8f0">
                         <p class="mb-1" style="font-size:.78rem;color:#64748b;font-weight:600">DEFAULT CREDENTIALS</p>
                         <p class="mb-0" style="font-size:.8rem;color:#374151">Username: <code>superadmin</code> &nbsp;|&nbsp; Password: <code>Admin@123</code></p>
                     </div>
@@ -975,6 +1053,243 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- ============================= REGISTRATION MODAL ============================= -->
+<div class="modal fade modal-register" id="registerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="register-header">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width:46px;height:46px;background:rgba(255,255,255,.15);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.3rem"><i class="fas fa-user-plus"></i></div>
+                        <div>
+                            <h5 class="mb-0 fw-bold" style="color:#fff;font-size:1.15rem">Create Account</h5>
+                            <p class="mb-0" style="opacity:.7;font-size:.82rem">Register as a new student or lecturer</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+            </div>
+            <div class="register-body">
+                <div id="registerAlert" class="alert d-none mb-3 rounded-3 border-0" role="alert"></div>
+
+                <!-- Tabs -->
+                <div class="register-tabs">
+                    <button type="button" class="register-tab active" id="tabStudent" data-tab="student">
+                        <i class="fas fa-user-graduate me-1"></i> Student Registration
+                    </button>
+                    <button type="button" class="register-tab" id="tabLecturer" data-tab="lecturer">
+                        <i class="fas fa-chalkboard-teacher me-1"></i> Lecturer Registration
+                    </button>
+                </div>
+
+                <!-- Student Registration Form -->
+                <form id="studentRegisterForm" class="register-form">
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuFullName">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" id="stuFullName" name="full_name" class="form-control" placeholder="Full name" required>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuUsername">Username <span class="text-danger">*</span></label>
+                            <input type="text" id="stuUsername" name="username" class="form-control" placeholder="Choose username" required>
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuEmail">Email <span class="text-danger">*</span></label>
+                            <input type="email" id="stuEmail" name="email" class="form-control" placeholder="email@example.com" required>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuPhone">Phone <span class="text-danger">*</span></label>
+                            <input type="tel" id="stuPhone" name="phone" class="form-control" placeholder="+234..." required>
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuPassword">Password <span class="text-danger">*</span></label>
+                            <input type="password" id="stuPassword" name="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuConfirmPassword">Confirm Password <span class="text-danger">*</span></label>
+                            <input type="password" id="stuConfirmPassword" name="confirm_password" class="form-control" placeholder="Re-enter password" required minlength="6">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuGender">Gender</label>
+                            <select id="stuGender" name="gender" class="form-select">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuDob">Date of Birth</label>
+                            <input type="date" id="stuDob" name="date_of_birth" class="form-control">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuNationality">Nationality</label>
+                            <input type="text" id="stuNationality" name="nationality" class="form-control" value="Nigerian">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuState">State of Origin</label>
+                            <input type="text" id="stuState" name="state_of_origin" class="form-control" placeholder="State of origin">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuLga">LGA</label>
+                            <input type="text" id="stuLga" name="lga" class="form-control" placeholder="Local Government Area">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuReligion">Religion</label>
+                            <input type="text" id="stuReligion" name="religion" class="form-control" placeholder="Religion">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuMarital">Marital Status</label>
+                            <select id="stuMarital" name="marital_status" class="form-select">
+                                <option value="">Select Status</option>
+                                <option value="Single">Single</option>
+                                <option value="Married">Married</option>
+                                <option value="Divorced">Divorced</option>
+                                <option value="Widowed">Widowed</option>
+                            </select>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuPob">Place of Birth</label>
+                            <input type="text" id="stuPob" name="place_of_birth" class="form-control" placeholder="Place of birth">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuHomeTown">Home Town</label>
+                            <input type="text" id="stuHomeTown" name="home_town" class="form-control" placeholder="Home town">
+                        </div>
+                        <div class="register-form-group"></div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuFaculty">Faculty <span class="text-danger">*</span></label>
+                            <select id="stuFaculty" name="faculty_id" class="form-select" required>
+                                <option value="">Loading faculties...</option>
+                            </select>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuDepartment">Department <span class="text-danger">*</span></label>
+                            <select id="stuDepartment" name="department_id" class="form-select" required disabled>
+                                <option value="">Select faculty first</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="register-form-group">
+                        <label for="stuProgramme">Programme <span class="text-danger">*</span></label>
+                        <select id="stuProgramme" name="programme_id" class="form-select" required disabled>
+                            <option value="">Select department first</option>
+                        </select>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="stuGuardianName">Guardian Name</label>
+                            <input type="text" id="stuGuardianName" name="guardian_name" class="form-control" placeholder="Guardian/Sponsor name">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="stuGuardianPhone">Guardian Phone</label>
+                            <input type="tel" id="stuGuardianPhone" name="guardian_phone" class="form-control" placeholder="Guardian phone number">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-register-submit mt-2" id="stuRegisterBtn">
+                        <i class="fas fa-user-plus me-2"></i>Register as Student
+                    </button>
+                </form>
+
+                <!-- Lecturer Registration Form -->
+                <form id="lecturerRegisterForm" class="register-form" style="display:none">
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecFullName">Full Name <span class="text-danger">*</span></label>
+                            <input type="text" id="lecFullName" name="full_name" class="form-control" placeholder="Full name" required>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecUsername">Username <span class="text-danger">*</span></label>
+                            <input type="text" id="lecUsername" name="username" class="form-control" placeholder="Choose username" required>
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecEmail">Email <span class="text-danger">*</span></label>
+                            <input type="email" id="lecEmail" name="email" class="form-control" placeholder="email@example.com" required>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecPhone">Phone <span class="text-danger">*</span></label>
+                            <input type="tel" id="lecPhone" name="phone" class="form-control" placeholder="+234..." required>
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecPassword">Password <span class="text-danger">*</span></label>
+                            <input type="password" id="lecPassword" name="password" class="form-control" placeholder="Min 6 characters" required minlength="6">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecConfirmPassword">Confirm Password <span class="text-danger">*</span></label>
+                            <input type="password" id="lecConfirmPassword" name="confirm_password" class="form-control" placeholder="Re-enter password" required minlength="6">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecGender">Gender</label>
+                            <select id="lecGender" name="gender" class="form-select">
+                                <option value="">Select Gender</option>
+                                <option value="Male">Male</option>
+                                <option value="Female">Female</option>
+                            </select>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecQualification">Qualification</label>
+                            <input type="text" id="lecQualification" name="qualification" class="form-control" placeholder="e.g. Ph.D, M.Sc, B.Sc">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecSpecialization">Specialization</label>
+                            <input type="text" id="lecSpecialization" name="specialization" class="form-control" placeholder="Area of specialization">
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecStaffId">Staff ID</label>
+                            <input type="text" id="lecStaffId" name="staff_id" class="form-control" placeholder="Staff ID number">
+                        </div>
+                    </div>
+                    <div class="register-form-row">
+                        <div class="register-form-group">
+                            <label for="lecFaculty">Faculty <span class="text-danger">*</span></label>
+                            <select id="lecFaculty" name="faculty_id" class="form-select" required>
+                                <option value="">Loading faculties...</option>
+                            </select>
+                        </div>
+                        <div class="register-form-group">
+                            <label for="lecDepartment">Department <span class="text-danger">*</span></label>
+                            <select id="lecDepartment" name="department_id" class="form-select" required disabled>
+                                <option value="">Select faculty first</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-register-submit mt-2" id="lecRegisterBtn">
+                        <i class="fas fa-chalkboard-teacher me-2"></i>Register as Lecturer
+                    </button>
+                </form>
+
+                <div class="text-center mt-3" style="font-size:.85rem;color:#64748b">
+                    Already have an account? <a href="#" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#loginModal" style="color:var(--accent);font-weight:600;text-decoration:none">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // ===== HERO PARTICLES =====
 (function() {
@@ -1111,6 +1426,225 @@ document.getElementById('resetForm').addEventListener('submit', async function(e
 if (window.location.hash === '#login') {
     new bootstrap.Modal(document.getElementById('loginModal')).show();
 }
+
+// ===== REGISTRATION MODAL =====
+(function() {
+    // Tab switching
+    const tabs = document.querySelectorAll('.register-tab');
+    const stuForm = document.getElementById('studentRegisterForm');
+    const lecForm = document.getElementById('lecturerRegisterForm');
+    const regAlert = document.getElementById('registerAlert');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+            const target = this.getAttribute('data-tab');
+            if (target === 'student') {
+                stuForm.style.display = 'block';
+                lecForm.style.display = 'none';
+            } else {
+                stuForm.style.display = 'none';
+                lecForm.style.display = 'block';
+            }
+            regAlert.className = 'alert d-none mb-3 rounded-3 border-0';
+        });
+    });
+
+    // Load faculties into dropdowns
+    async function loadFaculties(selectId) {
+        const sel = document.getElementById(selectId);
+        try {
+            const res = await fetch('api.php?action=get_faculties');
+            const data = await res.json();
+            sel.innerHTML = '<option value="">Select Faculty</option>';
+            if (data.status && data.data) {
+                data.data.forEach(f => {
+                    const opt = document.createElement('option');
+                    opt.value = f.id;
+                    opt.textContent = f.name;
+                    sel.appendChild(opt);
+                });
+            }
+        } catch(e) {
+            sel.innerHTML = '<option value="">Failed to load</option>';
+        }
+    }
+
+    // Load departments based on faculty
+    async function loadDepartments(selectId, facultyId) {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '<option value="">Loading...</option>';
+        sel.disabled = true;
+        try {
+            const res = await fetch('api.php?action=get_departments&faculty_id=' + facultyId);
+            const data = await res.json();
+            sel.innerHTML = '<option value="">Select Department</option>';
+            if (data.status && data.data) {
+                data.data.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.id;
+                    opt.textContent = d.name;
+                    sel.appendChild(opt);
+                });
+            }
+            sel.disabled = false;
+        } catch(e) {
+            sel.innerHTML = '<option value="">Failed to load</option>';
+        }
+    }
+
+    // Load programmes based on department
+    async function loadProgrammes(selectId, departmentId) {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '<option value="">Loading...</option>';
+        sel.disabled = true;
+        try {
+            const res = await fetch('api.php?action=get_programmes&department_id=' + departmentId);
+            const data = await res.json();
+            sel.innerHTML = '<option value="">Select Programme</option>';
+            if (data.status && data.data) {
+                data.data.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.name + (p.type ? ' (' + p.type + ')' : '');
+                    sel.appendChild(opt);
+                });
+            }
+            sel.disabled = false;
+        } catch(e) {
+            sel.innerHTML = '<option value="">Failed to load</option>';
+        }
+    }
+
+    // Student faculty -> department -> programme chain
+    document.getElementById('stuFaculty').addEventListener('change', function() {
+        const deptSel = document.getElementById('stuDepartment');
+        const progSel = document.getElementById('stuProgramme');
+        deptSel.innerHTML = '<option value="">Select Department</option>';
+        progSel.innerHTML = '<option value="">Select department first</option>';
+        progSel.disabled = true;
+        if (this.value) loadDepartments('stuDepartment', this.value);
+        else deptSel.disabled = true;
+    });
+
+    document.getElementById('stuDepartment').addEventListener('change', function() {
+        const progSel = document.getElementById('stuProgramme');
+        progSel.innerHTML = '<option value="">Select Programme</option>';
+        if (this.value) loadProgrammes('stuProgramme', this.value);
+        else progSel.disabled = true;
+    });
+
+    // Lecturer faculty -> department chain
+    document.getElementById('lecFaculty').addEventListener('change', function() {
+        const deptSel = document.getElementById('lecDepartment');
+        deptSel.innerHTML = '<option value="">Select Department</option>';
+        if (this.value) loadDepartments('lecDepartment', this.value);
+        else deptSel.disabled = true;
+    });
+
+    // Load faculties when modal opens
+    const registerModalEl = document.getElementById('registerModal');
+    registerModalEl.addEventListener('show.bs.modal', function() {
+        loadFaculties('stuFaculty');
+        loadFaculties('lecFaculty');
+    });
+
+    // Helper: collect form data into an object
+    function getFormData(formId) {
+        const form = document.getElementById(formId);
+        const data = {};
+        new FormData(form).forEach((val, key) => { data[key] = val; });
+        return data;
+    }
+
+    // Student Registration Submit
+    document.getElementById('studentRegisterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('stuRegisterBtn');
+        const formData = getFormData('studentRegisterForm');
+
+        // Validate passwords match
+        if (formData.password !== formData.confirm_password) {
+            regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+            regAlert.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Passwords do not match.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registering...';
+        regAlert.className = 'alert d-none mb-3 rounded-3 border-0';
+
+        try {
+            const res = await fetch('api.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({action:'register', request_type:'Student', ...formData})
+            });
+            const data = await res.json();
+            if (data.status) {
+                regAlert.className = 'alert alert-success mb-3 rounded-3 border-0';
+                regAlert.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + (data.message || 'Registration successful! Your account is pending admin approval. You will be able to log in once an administrator approves your account.');
+                document.getElementById('studentRegisterForm').reset();
+                document.getElementById('stuNationality').value = 'Nigerian';
+                document.getElementById('stuDepartment').innerHTML = '<option value="">Select faculty first</option>';
+                document.getElementById('stuDepartment').disabled = true;
+                document.getElementById('stuProgramme').innerHTML = '<option value="">Select department first</option>';
+                document.getElementById('stuProgramme').disabled = true;
+            } else {
+                regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+                regAlert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + (data.message || 'Registration failed. Please try again.');
+            }
+        } catch(err) {
+            regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+            regAlert.innerHTML = '<i class="fas fa-wifi me-2"></i>Network error. Please try again.';
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus me-2"></i>Register as Student';
+    });
+
+    // Lecturer Registration Submit
+    document.getElementById('lecturerRegisterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('lecRegisterBtn');
+        const formData = getFormData('lecturerRegisterForm');
+
+        // Validate passwords match
+        if (formData.password !== formData.confirm_password) {
+            regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+            regAlert.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Passwords do not match.';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registering...';
+        regAlert.className = 'alert d-none mb-3 rounded-3 border-0';
+
+        try {
+            const res = await fetch('api.php', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({action:'register', request_type:'Lecturer', ...formData})
+            });
+            const data = await res.json();
+            if (data.status) {
+                regAlert.className = 'alert alert-success mb-3 rounded-3 border-0';
+                regAlert.innerHTML = '<i class="fas fa-check-circle me-2"></i>' + (data.message || 'Registration successful! Your account is pending admin approval. You will be able to log in once an administrator approves your account.');
+                document.getElementById('lecturerRegisterForm').reset();
+                document.getElementById('lecDepartment').innerHTML = '<option value="">Select faculty first</option>';
+                document.getElementById('lecDepartment').disabled = true;
+            } else {
+                regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+                regAlert.innerHTML = '<i class="fas fa-exclamation-circle me-2"></i>' + (data.message || 'Registration failed. Please try again.');
+            }
+        } catch(err) {
+            regAlert.className = 'alert alert-warning mb-3 rounded-3 border-0';
+            regAlert.innerHTML = '<i class="fas fa-wifi me-2"></i>Network error. Please try again.';
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-chalkboard-teacher me-2"></i>Register as Lecturer';
+    });
+})();
 </script>
 </body>
 </html>

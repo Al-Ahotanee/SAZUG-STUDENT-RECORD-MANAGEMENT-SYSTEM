@@ -103,6 +103,39 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
 .form-label-sm{font-size:.8rem;font-weight:600;color:#374151;margin-bottom:5px;display:block}
 /* Responsive */
 @media(max-width:900px){.sidebar{position:fixed;top:0;left:0;bottom:0;transform:translateX(-100%);transition:transform .3s}.sidebar.mobile-open{transform:translateX(0)}}
+/* Course items */
+.course-item{background:#fff;border-radius:var(--radius);box-shadow:var(--card-shadow);border:1px solid #e8edf3;padding:16px 20px;display:flex;align-items:center;gap:14px;transition:all .2s;cursor:pointer}
+.course-item:hover{border-color:var(--accent);box-shadow:0 6px 25px rgba(59,130,246,.1)}
+.course-item.selected{border-color:var(--accent);background:#eff6ff}
+.course-item input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex-shrink:0;cursor:pointer}
+.course-item-code{font-weight:700;font-size:.88rem;color:#1a202c;min-width:100px}
+.course-item-title{font-size:.85rem;color:#374151;flex:1}
+.course-item-units{font-size:.78rem;font-weight:700;color:var(--accent);background:#dbeafe;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.course-item-semester{font-size:.75rem;color:#64748b;margin-right:8px;white-space:nowrap}
+.course-badge{font-size:.7rem;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.course-badge-compulsory{background:#dcfce7;color:#15803d}
+.course-badge-elective{background:#dbeafe;color:#1d4ed8}
+/* Course table */
+.course-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.87rem}
+.course-table thead th{background:#f0f4f8;color:#64748b;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:12px 16px;border-bottom:2px solid #e2e8f0}
+.course-table tbody td{padding:12px 16px;border-bottom:1px solid #f0f4f8;color:#1a202c;vertical-align:middle}
+.course-table tbody tr:nth-child(even){background:#f8fafc}
+.course-table tbody tr:hover{background:#eff6ff}
+.course-table tfoot td{padding:14px 16px;border-top:2px solid #1d4ed8;font-weight:700;color:#1a202c;background:#eff6ff}
+/* PDF header */
+.pdf-header{text-align:center;border-bottom:2px solid #1d4ed8;padding-bottom:16px;margin-bottom:20px}
+.pdf-header h4{font-size:1.1rem;font-weight:800;color:#1a202c;margin-bottom:4px}
+.pdf-header h5{font-size:.95rem;font-weight:700;color:#1d4ed8;margin-bottom:2px}
+.pdf-header p{font-size:.82rem;color:#64748b;margin:0}
+/* Signature lines */
+.signature-line{border-top:1px solid #1a202c;padding-top:8px;margin-top:40px;text-align:center;min-width:180px}
+.signature-line .sig-label{font-size:.78rem;font-weight:600;color:#1a202c;display:block;margin-top:4px}
+/* Biodata table */
+.biodata-table{width:100%;border-collapse:collapse;font-size:.87rem}
+.biodata-table th{background:#f0f4f8;color:#64748b;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;padding:10px 16px;border:1px solid #e2e8f0;text-align:left;width:35%}
+.biodata-table td{padding:10px 16px;border:1px solid #e2e8f0;color:#1a202c}
+.biodata-table tr:nth-child(even) td{background:#f8fafc}
+.biodata-section-title{font-size:.9rem;font-weight:700;color:#1d4ed8;padding:12px 16px;background:#eff6ff;border:1px solid #dbeafe;border-radius:8px;margin:20px 0 12px;display:flex;align-items:center;gap:8px}
 </style>
 </head>
 <body>
@@ -152,6 +185,19 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
         <button class="nav-item-btn" data-view="documents" onclick="showView('documents',this)">
             <span class="nav-icon"><i class="fas fa-folder-open"></i></span>
             <span class="nav-text">Upload Documents</span>
+        </button>
+        <div class="sidebar-section">Academics</div>
+        <button class="nav-item-btn" data-view="courses" onclick="showView('courses',this)">
+            <span class="nav-icon"><i class="fas fa-book"></i></span>
+            <span class="nav-text">Course Registration</span>
+        </button>
+        <button class="nav-item-btn" data-view="biodata" onclick="showView('biodata',this)">
+            <span class="nav-icon"><i class="fas fa-file-alt"></i></span>
+            <span class="nav-text">Biodata Form</span>
+        </button>
+        <button class="nav-item-btn" data-view="crf" onclick="showView('crf',this)">
+            <span class="nav-icon"><i class="fas fa-print"></i></span>
+            <span class="nav-text">Print CRF</span>
         </button>
         <div class="sidebar-section">Account</div>
         <button class="nav-item-btn" data-view="security" onclick="showView('security',this)">
@@ -491,6 +537,83 @@ body{font-family:'Inter',sans-serif;background:var(--body-bg);color:#1a202c;over
             </div>
         </div>
 
+        <!-- ===== COURSE REGISTRATION ===== -->
+        <div class="spa-view" id="view-courses">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                <div>
+                    <h3 style="font-size:1.15rem;font-weight:800;margin:0">Course Registration</h3>
+                    <p style="color:#94a3b8;font-size:.85rem;margin:4px 0 0">Session: <?= htmlspecialchars($student['session_name']) ?> &bull; Level <?= htmlspecialchars($student['level']) ?></p>
+                </div>
+                <button class="btn btn-primary rounded-pill px-4" onclick="registerCourses()" id="btnRegisterCourses"><i class="fas fa-check-circle me-2"></i>Register Selected Courses</button>
+            </div>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <span class="info-card-title"><i class="fas fa-list me-2 text-primary"></i>Available Courses</span>
+                            <span style="font-size:.78rem;color:#94a3b8" id="availableCount">Loading...</span>
+                        </div>
+                        <div class="info-card-body">
+                            <div id="availableCoursesContainer" class="d-flex flex-column gap-3">
+                                <div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading available courses...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="info-card">
+                        <div class="info-card-header">
+                            <span class="info-card-title"><i class="fas fa-check-double me-2 text-primary"></i>My Registered Courses</span>
+                            <span style="font-size:.78rem;color:#94a3b8" id="registeredTotal"></span>
+                        </div>
+                        <div class="info-card-body p-0" style="overflow-x:auto">
+                            <div id="registeredCoursesContainer">
+                                <div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading registered courses...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== BIODATA FORM ===== -->
+        <div class="spa-view" id="view-biodata">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                <div>
+                    <h3 style="font-size:1.15rem;font-weight:800;margin:0">Biodata Form</h3>
+                    <p style="color:#94a3b8;font-size:.85rem;margin:4px 0 0">Your complete student biodata record</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary rounded-pill px-4" onclick="window.open('generate_pdf.php?type=biodata','_blank')"><i class="fas fa-file-pdf me-2"></i>Download as PDF</button>
+                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="window.print()"><i class="fas fa-print me-2"></i>Print</button>
+                </div>
+            </div>
+            <div class="info-card">
+                <div id="biodataContainer">
+                    <div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading biodata...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== CRF PRINT ===== -->
+        <div class="spa-view" id="view-crf">
+            <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+                <div>
+                    <h3 style="font-size:1.15rem;font-weight:800;margin:0">Course Registration Form (CRF)</h3>
+                    <p style="color:#94a3b8;font-size:.85rem;margin:4px 0 0">Preview and print your CRF</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary rounded-pill px-4" onclick="window.open('generate_pdf.php?type=crf','_blank')"><i class="fas fa-file-pdf me-2"></i>Download as PDF</button>
+                    <button class="btn btn-outline-primary rounded-pill px-4" onclick="window.print()"><i class="fas fa-print me-2"></i>Print</button>
+                </div>
+            </div>
+            <div class="info-card">
+                <div id="crfContainer">
+                    <div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading CRF preview...</div>
+                </div>
+            </div>
+        </div>
+
     </div><!-- end content-area -->
 </div><!-- end main-area -->
 </div><!-- end app-wrapper -->
@@ -507,6 +630,10 @@ function showView(viewId, btn) {
     if (view) view.classList.add('active');
     if (btn) btn.classList.add('active');
     document.getElementById('pageTitle').textContent = btn?.querySelector('.nav-text')?.textContent?.trim() || viewId;
+    // Load data for specific views
+    if (viewId === 'courses') { loadAvailableCourses(); loadRegisteredCourses(); }
+    if (viewId === 'biodata') { loadBiodata(); }
+    if (viewId === 'crf') { loadCRF(); }
 }
 
 // Document upload
@@ -551,6 +678,251 @@ document.getElementById('secForm').addEventListener('submit', async function(e) 
 async function doLogout() {
     await fetch('api.php', {method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF},body:JSON.stringify({action:'logout'})});
     window.location.href = 'index.php';
+}
+
+/* ========== COURSE REGISTRATION ========== */
+async function loadAvailableCourses() {
+    const container = document.getElementById('availableCoursesContainer');
+    const countEl = document.getElementById('availableCount');
+    container.innerHTML = '<div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading available courses...</div>';
+    try {
+        const res = await fetch('api.php?action=get_available_courses');
+        const data = await res.json();
+        if (!data.status || !Array.isArray(data.courses) || data.courses.length === 0) {
+            container.innerHTML = '<div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-inbox me-2"></i>No courses available for registration at this time.</div>';
+            countEl.textContent = '0 courses';
+            return;
+        }
+        countEl.textContent = data.courses.length + ' course(s)';
+        let html = '';
+        data.courses.forEach(c => {
+            const isCompulsory = (c.course_type || c.type || '').toLowerCase() === 'compulsory';
+            html += `
+            <div class="course-item" onclick="this.querySelector('input').click()">
+                <input type="checkbox" value="${c.id || c.course_id}" id="course_${c.id || c.course_id}">
+                <div class="course-item-code">${c.course_code || ''}</div>
+                <div class="course-item-title">${c.course_title || c.title || ''}</div>
+                <div class="course-item-semester">${c.semester || ''}</div>
+                <span class="course-badge ${isCompulsory ? 'course-badge-compulsory' : 'course-badge-elective'}">${isCompulsory ? 'Compulsory' : 'Elective'}</span>
+                <span class="course-item-units">${c.credit_units || c.units || 0} CU</span>
+            </div>`;
+        });
+        container.innerHTML = html;
+    } catch(err) {
+        container.innerHTML = '<div class="text-center py-4" style="color:#f97316;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>Failed to load courses. Please try again.</div>';
+    }
+}
+
+async function loadRegisteredCourses() {
+    const container = document.getElementById('registeredCoursesContainer');
+    const totalEl = document.getElementById('registeredTotal');
+    container.innerHTML = '<div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading registered courses...</div>';
+    try {
+        const res = await fetch('api.php?action=get_registered_courses');
+        const data = await res.json();
+        if (!data.status || !Array.isArray(data.courses) || data.courses.length === 0) {
+            container.innerHTML = '<div class="text-center py-4" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-inbox me-2"></i>You have not registered any courses yet.</div>';
+            totalEl.textContent = '';
+            return;
+        }
+        let totalUnits = 0;
+        let html = '<table class="course-table"><thead><tr><th>S/N</th><th>Code</th><th>Title</th><th>Credit</th><th>Semester</th></tr></thead><tbody>';
+        data.courses.forEach((c, i) => {
+            const units = parseInt(c.credit_units || c.units || 0);
+            totalUnits += units;
+            html += `<tr><td>${i + 1}</td><td style="font-weight:700">${c.course_code || ''}</td><td>${c.course_title || c.title || ''}</td><td>${units}</td><td>${c.semester || ''}</td></tr>`;
+        });
+        html += `</tbody><tfoot><tr><td colspan="3">Total Credit Units</td><td>${totalUnits}</td><td></td></tr></tfoot></table>`;
+        container.innerHTML = html;
+        totalEl.textContent = totalUnits + ' Total CU';
+    } catch(err) {
+        container.innerHTML = '<div class="text-center py-4" style="color:#f97316;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>Failed to load registered courses.</div>';
+    }
+}
+
+async function registerCourses() {
+    const checkboxes = document.querySelectorAll('#availableCoursesContainer input[type=checkbox]:checked');
+    if (checkboxes.length === 0) {
+        Swal.fire({icon:'warning',title:'No Courses Selected',text:'Please select at least one course to register.',confirmButtonColor:'#3b82f6'});
+        return;
+    }
+    const courseIds = Array.from(checkboxes).map(cb => cb.value);
+    const btn = document.getElementById('btnRegisterCourses');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Registering...';
+    try {
+        const res = await fetch('api.php?action=register_courses', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRF-Token':CSRF},
+            body:JSON.stringify({course_ids:courseIds})
+        });
+        const data = await res.json();
+        if (data.status) {
+            Swal.fire({icon:'success',title:'Courses Registered!',text:data.message || 'Your courses have been successfully registered.',confirmButtonColor:'#3b82f6'});
+            checkboxes.forEach(cb => cb.checked = false);
+            loadAvailableCourses();
+            loadRegisteredCourses();
+        } else {
+            Swal.fire({icon:'error',title:'Registration Failed',text:data.message || 'Could not register courses. Please try again.',confirmButtonColor:'#3b82f6'});
+        }
+    } catch(err) {
+        Swal.fire({icon:'error',title:'Network Error',text:'Failed to connect to server. Please try again.',confirmButtonColor:'#3b82f6'});
+    }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check-circle me-2"></i>Register Selected Courses';
+}
+
+/* ========== BIODATA ========== */
+async function loadBiodata() {
+    const container = document.getElementById('biodataContainer');
+    container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading biodata...</div>';
+    try {
+        const res = await fetch('api.php?action=get_biodata');
+        const data = await res.json();
+        if (!data.status || !data.student) {
+            container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>Biodata not available.</div>';
+            return;
+        }
+        const s = data.student;
+        let html = '<div class="info-card-body" style="padding:0">';
+
+        // Photo + Personal Info
+        html += '<div class="d-flex align-items-start gap-4 mb-4 p-4" style="background:#f8fafc;border-radius:var(--radius)  var(--radius) 0 0">';
+        if (s.photo || s.passport) {
+            html += `<img src="${s.photo || s.passport}" alt="Passport" style="width:100px;height:120px;object-fit:cover;border-radius:10px;border:3px solid #dbeafe">`;
+        } else {
+            html += `<div style="width:100px;height:120px;background:linear-gradient(135deg,#1d4ed8,#3b82f6);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;font-weight:800">${(s.full_name || '').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase()}</div>`;
+        }
+        html += '<div style="flex:1">';
+        html += '<div style="font-size:1.15rem;font-weight:800;color:#1a202c;margin-bottom:2px">' + (s.full_name || '—') + '</div>';
+        html += '<div style="font-size:.82rem;color:#64748b">Student Biodata Record</div>';
+        html += '</div></div>';
+
+        // Section A: Personal Information
+        html += '<div class="biodata-section-title"><i class="fas fa-user"></i> A. Personal Information</div>';
+        html += '<table class="biodata-table">';
+        const personalRows = [
+            ['Date of Birth', s.dob ? new Date(s.dob).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'],
+            ['Gender', s.gender || '—'],
+            ['Place of Birth', s.place_of_birth || s.home_town || '—'],
+            ['Nationality', s.nationality || '—'],
+            ['State of Origin', s.state || '—'],
+            ['Local Government Area', s.lga || '—'],
+            ['Home Town', s.home_town || '—'],
+            ['Religion', s.religion || '—'],
+            ['Marital Status', s.marital_status || '—'],
+            ['Phone Number', s.phone || '—'],
+            ['Email Address', s.email || '—'],
+            ['Residential Address', s.address || '—'],
+        ];
+        personalRows.forEach(([label, value]) => {
+            html += `<tr><th>${label}</th><td>${value}</td></tr>`;
+        });
+        html += '</table>';
+
+        // Section B: Academic Information
+        html += '<div class="biodata-section-title"><i class="fas fa-graduation-cap"></i> B. Academic Information</div>';
+        html += '<table class="biodata-table">';
+        const academicRows = [
+            ['Admission Number', s.admission_number || '—'],
+            ['Matriculation Number', s.matric_number || 'Not yet assigned'],
+            ['Faculty', s.faculty_name || s.faculty || '—'],
+            ['Department', s.department_name || s.department || '—'],
+            ['Programme', (s.programme_name || s.programme || '—') + (s.programme_type ? ' (' + s.programme_type + ')' : '')],
+            ['Current Level', s.level ? 'Level ' + s.level : '—'],
+            ['Admission Date', s.admission_date ? new Date(s.admission_date).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) : '—'],
+            ['Session', s.session_name || '—'],
+            ['Programme Duration', s.duration || '—'],
+        ];
+        academicRows.forEach(([label, value]) => {
+            html += `<tr><th>${label}</th><td>${value}</td></tr>`;
+        });
+        html += '</table>';
+
+        // Section C: Guardian/Next of Kin
+        html += '<div class="biodata-section-title"><i class="fas fa-users"></i> C. Guardian / Next of Kin</div>';
+        html += '<table class="biodata-table">';
+        const guardianRows = [
+            ['Guardian Name', s.guardian_name || '—'],
+            ['Guardian Phone', s.guardian_phone || '—'],
+        ];
+        guardianRows.forEach(([label, value]) => {
+            html += `<tr><th>${label}</th><td>${value}</td></tr>`;
+        });
+        html += '</table>';
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(err) {
+        container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#f97316;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>Failed to load biodata.</div>';
+    }
+}
+
+/* ========== CRF PREVIEW ========== */
+async function loadCRF() {
+    const container = document.getElementById('crfContainer');
+    container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-spinner fa-spin me-2"></i>Loading CRF preview...</div>';
+    try {
+        const res = await fetch('api.php?action=get_courses_for_session');
+        const data = await res.json();
+        if (!data.status) {
+            container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#94a3b8;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>No CRF data available. Please register courses first.</div>';
+            return;
+        }
+        const s = data.student || {};
+        const courses = data.courses || [];
+        let html = '<div class="info-card-body" style="padding:24px">';
+
+        // Header
+        html += '<div class="pdf-header">';
+        html += '<h4>Sa\'adu Zungur University, Gadau</h4>';
+        html += '<h5>COURSE REGISTRATION FORM (CRF)</h5>';
+        html += '<p>Session: ' + (s.session_name || data.session || '—') + ' &bull; Semester: ' + (s.semester || data.semester || '—') + '</p>';
+        html += '</div>';
+
+        // Student Info
+        html += '<table class="biodata-table mb-4">';
+        const studentInfo = [
+            ['Student Name', s.full_name || '—'],
+            ['Matric No', s.matric_number || 'Not yet assigned'],
+            ['Faculty', s.faculty_name || s.faculty || '—'],
+            ['Department', s.department_name || s.department || '—'],
+            ['Programme', (s.programme_name || s.programme || '—') + (s.programme_type ? ' (' + s.programme_type + ')' : '')],
+            ['Level', s.level ? 'Level ' + s.level : '—'],
+        ];
+        studentInfo.forEach(([label, value]) => {
+            html += `<tr><th>${label}</th><td style="font-weight:600">${value}</td></tr>`;
+        });
+        html += '</table>';
+
+        // Course Table
+        if (courses.length === 0) {
+            html += '<div class="text-center py-4" style="color:#94a3b8;font-size:.88rem;background:#f8fafc;border-radius:8px"><i class="fas fa-inbox me-2"></i>No courses registered for this session.</div>';
+        } else {
+            let totalUnits = 0;
+            html += '<table class="course-table"><thead><tr><th>S/N</th><th>Course Code</th><th>Course Title</th><th>Credit Units</th><th>Semester</th><th>Status</th></tr></thead><tbody>';
+            courses.forEach((c, i) => {
+                const units = parseInt(c.credit_units || c.units || 0);
+                totalUnits += units;
+                const isCompulsory = (c.course_type || c.type || c.status || '').toLowerCase() === 'compulsory';
+                html += `<tr><td>${i + 1}</td><td style="font-weight:700">${c.course_code || ''}</td><td>${c.course_title || c.title || ''}</td><td style="text-align:center">${units}</td><td>${c.semester || ''}</td><td><span class="course-badge ${isCompulsory ? 'course-badge-compulsory' : 'course-badge-elective'}">${isCompulsory ? 'Compulsory' : 'Elective'}</span></td></tr>`;
+            });
+            html += `</tbody><tfoot><tr><td colspan="3" style="text-align:right">Total Credit Units</td><td style="text-align:center">${totalUnits}</td><td colspan="2"></td></tr></tfoot></table>`;
+        }
+
+        // Signature lines
+        html += '<div class="row mt-5">';
+        html += '<div class="col-md-3"><div class="signature-line"><span class="sig-label">Student\'s Signature</span></div></div>';
+        html += '<div class="col-md-3"><div class="signature-line"><span class="sig-label">Academic Adviser</span></div></div>';
+        html += '<div class="col-md-3"><div class="signature-line"><span class="sig-label">Head of Department</span></div></div>';
+        html += '<div class="col-md-3"><div class="signature-line"><span class="sig-label">Dean</span></div></div>';
+        html += '</div>';
+
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(err) {
+        container.innerHTML = '<div class="info-card-body text-center py-5" style="color:#f97316;font-size:.88rem"><i class="fas fa-exclamation-circle me-2"></i>Failed to load CRF preview.</div>';
+    }
 }
 </script>
 </body>
