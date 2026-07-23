@@ -434,7 +434,7 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
                     Academic Year 2026/2027 — Now Active
                 </div>
                 <h1 class="hero-title">
-                    The <span>SA'ADU ZUNGUR UNIVERSITY GADAU,BAUCHI STATE</span> Student Records Management System Using PHP and My-SQL
+                    The <span>Smarter Way</span> to Manage Student Records
                 </h1>
                 <p class="hero-sub">
                     The university's enterprise-grade Student Record Management System — unified admissions, 
@@ -849,11 +849,11 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
                 <div class="d-flex flex-column gap-3">
                     <div class="d-flex align-items-start gap-3">
                         <i class="fas fa-map-marker-alt mt-1" style="color:var(--gold);flex-shrink:0"></i>
-                        <span style="font-size:.88rem;color:rgba(255,255,255,.5)">SA'ADU ZUNGUR UNIVERSITY GADAU,BAUCHI STATE, Nigeria</span>
+                        <span style="font-size:.88rem;color:rgba(255,255,255,.5)">Zamfara State Polytechnic, Kaura Namoda, Zamfara State, Nigeria</span>
                     </div>
                     <div class="d-flex align-items-center gap-3">
                         <i class="fas fa-envelope" style="color:var(--gold)"></i>
-                        <span style="font-size:.88rem;color:rgba(255,255,255,.5)">ict@sazug.edu.ng</span>
+                        <span style="font-size:.88rem;color:rgba(255,255,255,.5)">ict@sazugpoly.edu.ng</span>
                     </div>
                     <div class="d-flex align-items-center gap-3">
                         <i class="fas fa-phone" style="color:var(--gold)"></i>
