@@ -168,17 +168,17 @@ CREATE TABLE IF NOT EXISTS `audit_logs` (
     INDEX `idx_audit_logs_action` (`action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- SEED DATA
+-- SEED DATA (Idempotent using INSERT IGNORE)
 
 -- Default Super Administrator (Password: Admin@123)
-INSERT INTO `users` (`username`, `password_hash`, `role`, `status`) VALUES
-('superadmin', '$2y$10$wO2Z1FqP3yJ3bXzW3hF4euXgR/aD0k.fT0s1Vf4xG5z3E2v3F2f7i', 'Super Administrator', 'Active');
+INSERT IGNORE INTO `users` (`id`, `username`, `password_hash`, `role`, `status`) VALUES
+(1, 'superadmin', '$2y$10$wO2Z1FqP3yJ3bXzW3hF4euXgR/aD0k.fT0s1Vf4xG5z3E2v3F2f7i', 'Super Administrator', 'Active');
 
-INSERT INTO `staff` (`user_id`, `full_name`, `phone`) VALUES
-(LAST_INSERT_ID(), 'System Super Administrator', '08000000000');
+INSERT IGNORE INTO `staff` (`user_id`, `full_name`, `phone`) VALUES
+(1, 'System Super Administrator', '08000000000');
 
 -- Default Academic Session
-INSERT INTO `sessions` (`name`, `semester`, `is_active`) VALUES 
-('2026/2027', 'First', 1);
+INSERT IGNORE INTO `sessions` (`id`, `name`, `semester`, `is_active`) VALUES 
+(1, '2026/2027', 'First', 1);
 
 SET FOREIGN_KEY_CHECKS = 1;
