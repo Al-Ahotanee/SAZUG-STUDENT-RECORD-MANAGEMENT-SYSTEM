@@ -1,7 +1,7 @@
 <?php
 /**
- * SAZUG Student Record Management System - Public Enterprise Portal & Landing Page
- * Handles Elite Landing Page, Secure Authentication, and Public Anti-Forgery Verification.
+ * SAZUG Student Record Management System - Public Enterprise Portal
+ * Handles Premium Landing Page, Secure Authentication, and Anti-Forgery Verification.
  */
 session_start();
 
@@ -46,10 +46,10 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
         $stmt->execute(['cert' => $certNumber]);
         $verificationData = $stmt->fetch(PDO::FETCH_ASSOC);
         if (!$verificationData) {
-            $verificationError = "Certificate Number not found or is invalid in the SAZUG registry.";
+            $verificationError = "The provided Certificate Identification Number could not be authenticated against the SAZUG encrypted registry.";
         }
     } catch (PDOException $e) {
-        $verificationError = "Verification service temporarily unavailable.";
+        $verificationError = "Secure verification services are temporarily offline. Please try again shortly.";
     }
 }
 ?>
@@ -64,110 +64,264 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #1e293b 100%);
-            --accent-glow: 0 0 30px rgba(37, 99, 235, 0.2);
-            --card-bg: rgba(255, 255, 255, 0.95);
+            --brand-dark: #0B1121;
+            --brand-primary: #3B82F6;
+            --brand-primary-hover: #2563EB;
+            --brand-accent: #8B5CF6;
+            --bg-body: #FAFAFA;
+            --text-main: #1F2937;
+            --text-muted: #6B7280;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.4);
+            --shadow-soft: 0 20px 40px -15px rgba(0,0,0,0.05);
+            --shadow-glow: 0 0 40px rgba(59, 130, 246, 0.3);
         }
+
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
-            background-color: #f8fafc;
-            color: #1e293b;
+            background-color: var(--bg-body);
+            color: var(--text-main);
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
-        /* Navbar */
-        .navbar-custom {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+        /* 1. ULTRA-SLEEK NAVBAR */
+        .navbar-glass {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 15px 0;
+            transition: all 0.3s ease;
         }
-        /* Hero Section */
+        .navbar-brand {
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--brand-dark) !important;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-icon {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.5rem;
+        }
+        .nav-link {
+            color: var(--text-muted) !important;
+            font-weight: 500;
+            font-size: 0.95rem;
+            margin: 0 10px;
+            transition: color 0.2s;
+        }
+        .nav-link:hover { color: var(--brand-primary) !important; }
+        
+        .btn-premium {
+            background: var(--brand-dark);
+            color: white !important;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            border: 1px solid var(--brand-dark);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-premium:hover {
+            background: transparent;
+            color: var(--brand-dark) !important;
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-soft);
+        }
+
+        /* 2. HERO SECTION (Mesh Gradient & Typography) */
         .hero-section {
-            background: var(--primary-gradient);
-            color: white;
-            padding: 120px 0 100px 0;
+            padding: 180px 0 120px;
             position: relative;
-            clip-path: ellipse(150% 100% at 50% 0%);
+            background-color: #ffffff;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%);
+            border-bottom: 1px solid rgba(0,0,0,0.03);
+            overflow: hidden;
         }
-        .hero-card {
-            background: rgba(255, 255, 255, 0.05);
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 14px;
+            background: rgba(59, 130, 246, 0.1);
+            color: var(--brand-primary);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        .hero-title {
+            font-size: 4.5rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -2px;
+            color: var(--brand-dark);
+            margin-bottom: 24px;
+        }
+        .text-gradient {
+            background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            line-height: 1.7;
+            margin-bottom: 40px;
+            max-width: 600px;
+        }
+        
+        /* 3. HERO VISUAL (CSS Floating Cards) */
+        .hero-visual-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            perspective: 1000px;
+        }
+        .floating-card {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        /* Carousel */
-        .carousel-item {
-            padding: 20px 0;
-        }
-        /* Feature Cards */
-        .feature-card {
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.8);
             border-radius: 16px;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            background: white;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            padding: 24px;
+            box-shadow: 0 30px 60px -20px rgba(0,0,0,0.15);
+            animation: float 6s ease-in-out infinite;
         }
-        .feature-card:hover {
+        .card-1 { top: 10%; left: 10%; width: 280px; z-index: 3; animation-delay: 0s; transform: rotate(-5deg); }
+        .card-2 { top: 40%; right: 5%; width: 250px; z-index: 2; animation-delay: -2s; transform: rotate(3deg); background: var(--brand-dark); color: white; border-color: rgba(255,255,255,0.1); }
+        .card-3 { bottom: 0; left: 20%; width: 300px; z-index: 4; animation-delay: -4s; transform: rotate(2deg); }
+        
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
+            50% { transform: translateY(-20px) rotate(var(--rot, 0deg)); }
+            100% { transform: translateY(0px) rotate(var(--rot, 0deg)); }
+        }
+
+        /* 4. BENTO BOX FEATURES */
+        .bento-section {
+            padding: 100px 0;
+            background: var(--bg-body);
+        }
+        .bento-card {
+            background: #ffffff;
+            border-radius: 24px;
+            padding: 40px;
+            height: 100%;
+            border: 1px solid rgba(0,0,0,0.04);
+            box-shadow: var(--shadow-soft);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .bento-card:hover {
             transform: translateY(-8px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 30px 60px -15px rgba(0,0,0,0.08);
+            border-color: rgba(59, 130, 246, 0.2);
         }
-        .feature-icon {
-            width: 60px;
-            height: 60px;
+        .icon-box {
+            width: 56px;
+            height: 56px;
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--brand-primary);
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 14px;
-            background: #eff6ff;
-            color: #2563eb;
             font-size: 1.5rem;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
         }
-        /* Login Modal & Verification Box */
-        .modal-content {
-            border-radius: 20px;
+        .icon-box.dark { background: var(--brand-dark); color: white; }
+        .icon-box.purple { background: rgba(139, 92, 246, 0.1); color: var(--brand-accent); }
+
+        /* 5. VERIFICATION SECTION */
+        .verify-section {
+            padding: 120px 0;
+            background: var(--brand-dark);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+        .verify-section::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(59,130,246,0.1) 0%, rgba(0,0,0,0) 50%);
+            pointer-events: none;
+        }
+        .search-bar-wrapper {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 8px;
+            display: flex;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+            max-width: 700px;
+            margin: 0 auto;
+            transition: border-color 0.3s;
+        }
+        .search-bar-wrapper:focus-within { border-color: var(--brand-primary); box-shadow: var(--shadow-glow); }
+        .search-input {
+            background: transparent;
             border: none;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            color: white;
+            padding: 20px 24px;
+            font-size: 1.1rem;
+            width: 100%;
         }
-        .btn-glow {
-            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        .search-input:focus { outline: none; box-shadow: none; }
+        .search-input::placeholder { color: rgba(255,255,255,0.4); }
+        .btn-search {
+            background: var(--brand-primary);
+            color: white;
             border: none;
-            box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.5);
-            transition: all 0.2s ease;
+            border-radius: 12px;
+            padding: 0 32px;
+            font-weight: 600;
+            transition: background 0.3s;
         }
-        .btn-glow:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 15px 25px -5px rgba(37, 99, 235, 0.6);
-            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+        .btn-search:hover { background: var(--brand-primary-hover); }
+
+        /* 6. MODAL STYLING */
+        .modal-backdrop.show { opacity: 0.6; backdrop-filter: blur(5px); }
+        .custom-modal .modal-content {
+            border: none;
+            border-radius: 24px;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.25);
+            overflow: hidden;
         }
-        footer {
-            background: #0f172a;
-            color: #94a3b8;
-            padding: 60px 0 30px 0;
-        }
+        .modal-left-pane { background: var(--brand-dark); color: white; padding: 40px; display: flex; flex-direction: column; justify-content: center; }
+        .form-floating > .form-control { border-radius: 12px; border: 1px solid #E5E7EB; }
+        .form-floating > .form-control:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+
+        /* Footer */
+        .footer { padding: 60px 0; border-top: 1px solid rgba(0,0,0,0.05); background: #ffffff; }
     </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
-<nav class="navbar navbar-expand-lg navbar-dark navbar-custom fixed-top py-3">
+<nav class="navbar navbar-expand-lg navbar-glass fixed-top">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center fw-bold fs-4" href="index.php">
-            <div class="bg-primary text-white p-2 rounded-3 me-2 shadow-sm d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                <i class="fas fa-graduation-cap"></i>
-            </div>
-            <span>SAZUG <span class="text-primary fw-light">SRMS</span></span>
+        <a class="navbar-brand" href="index.php">
+            <i class="fas fa-layer-group brand-icon"></i>
+            <span>SAZUG <span style="font-weight:400; color:var(--text-muted)">Enterprise</span></span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navItems">
+            <i class="fas fa-bars"></i>
         </button>
-        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            <ul class="navbar-nav align-items-center gap-3">
-                <li class="nav-item"><a class="nav-link text-white" href="#features">Capabilities</a></li>
-                <li class="nav-item"><a class="nav-link text-white" href="#verify-section">Certificate Verification</a></li>
-                <li class="nav-item">
-                    <button class="btn btn-glow text-white px-4 py-2 rounded-pill fw-semibold" data-bs-toggle="modal" data-bs-target="#loginModal">
-                        <i class="fas fa-lock me-2"></i> Portal Login
+        <div class="collapse navbar-collapse justify-content-end" id="navItems">
+            <ul class="navbar-nav align-items-center gap-2">
+                <li class="nav-item"><a class="nav-link" href="#platform">Platform</a></li>
+                <li class="nav-item"><a class="nav-link" href="#verify">Verify Credential</a></li>
+                <li class="nav-item ms-lg-3">
+                    <button class="btn btn-premium" data-bs-toggle="modal" data-bs-target="#loginModal">
+                        Access Portal <i class="fas fa-arrow-right ms-2" style="font-size: 0.8em;"></i>
                     </button>
                 </li>
             </ul>
@@ -176,93 +330,128 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
 </nav>
 
 <?php if (isset($_GET['verify'])): ?>
-    <!-- PUBLIC CERTIFICATE VERIFICATION VIEW -->
-    <div class="container min-vh-100 d-flex align-items-center justify-content-center py-5 mt-5">
-        <div class="card shadow-lg border-0 rounded-4 w-100" style="max-width: 650px;">
-            <div class="card-header bg-dark text-white text-center py-4 rounded-top-4">
-                <h3 class="mb-0 fw-bold"><i class="fas fa-shield-alt text-primary me-2"></i> Official Verification Portal</h3>
-                <p class="text-white-50 small mb-0 mt-1">SAZUG Anti-Forgery Certificate Authenticator</p>
-            </div>
-            <div class="card-body text-center p-5">
-                <?php if ($verificationData): ?>
-                    <div class="mb-4">
-                        <span class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-circle p-4 mb-3" style="width: 80px; height: 80px;">
-                            <i class="fas fa-check-circle fa-3x"></i>
-                        </span>
-                        <h3 class="text-success fw-bold">Authentic & Verified</h3>
-                        <p class="text-muted small">This certificate record matches official institutional archives.</p>
-                    </div>
-                    <hr class="text-muted opacity-25">
-                    <table class="table table-borderless text-start align-middle">
-                        <tr><th class="text-muted w-40">Recipient Name:</th> <td class="fw-bold fs-5 text-dark"><?= htmlspecialchars($verificationData['full_name']) ?></td></tr>
-                        <tr><th class="text-muted">Matriculation No:</th> <td><code><?= htmlspecialchars($verificationData['matric_number']) ?></code></td></tr>
-                        <tr><th class="text-muted">Award / Programme:</th> <td class="fw-semibold"><?= htmlspecialchars($verificationData['programme']) ?></td></tr>
-                        <tr><th class="text-muted">Department:</th> <td><?= htmlspecialchars($verificationData['department']) ?></td></tr>
-                        <tr><th class="text-muted">Faculty:</th> <td><?= htmlspecialchars($verificationData['faculty']) ?></td></tr>
-                        <tr><th class="text-muted">Date Awarded:</th> <td><?= htmlspecialchars($verificationData['graduation_date']) ?></td></tr>
-                        <tr><th class="text-muted">Certificate ID:</th> <td><span class="badge bg-primary"><?= htmlspecialchars($verificationData['certificate_number']) ?></span></td></tr>
-                    </table>
-                <?php else: ?>
-                    <div class="mb-4">
-                        <span class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-danger rounded-circle p-4 mb-3" style="width: 80px; height: 80px;">
-                            <i class="fas fa-times-circle fa-3x"></i>
-                        </span>
-                        <h3 class="text-danger fw-bold">Verification Failed</h3>
-                        <p class="text-muted"><?= htmlspecialchars($verificationError) ?></p>
-                    </div>
-                <?php endif; ?>
-                <div class="mt-4 pt-3 border-top">
-                    <a href="index.php" class="btn btn-outline-dark px-4 py-2 rounded-pill"><i class="fas fa-arrow-left me-2"></i> Return to Home</a>
+    <div class="container min-vh-100 d-flex align-items-center justify-content-center pt-5">
+        <div class="card border-0 w-100 mt-5" style="max-width: 700px; border-radius: 24px; box-shadow: var(--shadow-soft);">
+            <div class="card-header bg-white border-0 text-center pt-5 pb-3">
+                <div class="mb-3">
+                    <?php if ($verificationData): ?>
+                        <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-circle" style="width: 80px; height: 80px;">
+                            <i class="fas fa-shield-check fa-3x"></i>
+                        </div>
+                        <h2 class="fw-bold mt-4 text-dark">Verified & Authentic</h2>
+                        <p class="text-muted">This certificate record is permanently logged in the institutional registry.</p>
+                    <?php else: ?>
+                        <div class="d-inline-flex align-items-center justify-content-center bg-danger bg-opacity-10 text-danger rounded-circle" style="width: 80px; height: 80px;">
+                            <i class="fas fa-shield-xmark fa-3x"></i>
+                        </div>
+                        <h2 class="fw-bold mt-4 text-dark">Record Not Found</h2>
+                        <p class="text-danger"><?= htmlspecialchars($verificationError) ?></p>
+                    <?php endif; ?>
                 </div>
+            </div>
+            
+            <?php if ($verificationData): ?>
+            <div class="card-body px-5 pb-5">
+                <div class="bg-light rounded-4 p-4 mb-4 border" style="border-color: rgba(0,0,0,0.05) !important;">
+                    <div class="row g-4">
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Graduate Name</span>
+                            <span class="fs-5 fw-bold text-dark"><?= htmlspecialchars($verificationData['full_name']) ?></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Matriculation Number</span>
+                            <span class="fs-6 fw-semibold font-monospace bg-white border px-2 py-1 rounded"><?= htmlspecialchars($verificationData['matric_number']) ?></span>
+                        </div>
+                        <div class="col-12 border-top pt-3 mt-3"></div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Award</span>
+                            <span class="fw-semibold text-dark"><?= htmlspecialchars($verificationData['programme']) ?></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Graduation Date</span>
+                            <span class="fw-semibold text-dark"><?= date('F j, Y', strtotime($verificationData['graduation_date'])) ?></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Department</span>
+                            <span class="text-dark"><?= htmlspecialchars($verificationData['department']) ?></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <span class="d-block text-muted small fw-semibold text-uppercase tracking-wide mb-1">Faculty</span>
+                            <span class="text-dark"><?= htmlspecialchars($verificationData['faculty']) ?></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <span class="badge bg-dark bg-opacity-10 text-dark border px-3 py-2 rounded-pill font-monospace">
+                        <i class="fas fa-fingerprint me-2"></i> ID: <?= htmlspecialchars($verificationData['certificate_number']) ?>
+                    </span>
+                </div>
+            </div>
+            <?php endif; ?>
+            <div class="card-footer bg-white border-top-0 text-center pb-5">
+                <a href="index.php" class="btn btn-light border px-4 py-2 rounded-pill fw-semibold text-muted hover-dark"><i class="fas fa-arrow-left me-2"></i> Back to Gateway</a>
             </div>
         </div>
     </div>
+
 <?php else: ?>
-    <!-- HERO SECTION -->
     <section class="hero-section">
-        <div class="container pt-5">
+        <div class="container">
             <div class="row align-items-center g-5">
-                <div class="col-lg-7">
-                    <span class="badge bg-primary bg-opacity-20 text-primary border border-primary border-opacity-25 px-3 py-2 rounded-pill fw-semibold mb-4">
-                        <i class="fas fa-bolt me-2"></i> Enterprise SRMS v1.0 Production
-                    </span>
-                    <h1 class="display-3 fw-extrabold mb-4 lh-tight">
-                        Shaping the Future of <span class="text-primary text-gradient">Academic Excellence</span>
+                <div class="col-lg-6">
+                    <div class="hero-badge">
+                        <span class="me-2 rounded-circle bg-primary" style="width:8px; height:8px; display:inline-block;"></span> 
+                        SRMS Core v1.0 is now live
+                    </div>
+                    <h1 class="hero-title">
+                        Modernize your <br>
+                        <span class="text-gradient">academic infrastructure.</span>
                     </h1>
-                    <p class="lead text-light opacity-80 mb-5">
-                        A world-class, lightning-fast, and secure Student Record Management System designed for end-to-end lifecycle management from admission to graduation.
+                    <p class="hero-subtitle">
+                        A centralized, lightning-fast platform designed to manage the entire student lifecycle with bank-grade security and zero friction.
                     </p>
                     <div class="d-flex flex-wrap gap-3">
-                        <button class="btn btn-glow text-white px-5 py-3 rounded-pill fw-bold fs-5" data-bs-toggle="modal" data-bs-target="#loginModal">
-                            Access Secure Portal <i class="fas fa-arrow-right ms-2"></i>
+                        <button class="btn btn-premium" style="padding: 14px 32px; font-size: 1.05rem;" data-bs-toggle="modal" data-bs-target="#loginModal">
+                            Enter Workspace
                         </button>
-                        <a href="#verify-section" class="btn btn-outline-light px-4 py-3 rounded-pill fw-semibold fs-5">
-                            Verify Certificate
+                        <a href="#verify" class="btn btn-light" style="padding: 14px 32px; font-size: 1.05rem; border-radius: 8px; font-weight: 600; border: 1px solid #E5E7EB; color: var(--text-main);">
+                            Verify Document
                         </a>
                     </div>
                 </div>
-                <div class="col-lg-5">
-                    <div class="hero-card p-4 text-white">
-                        <h4 class="fw-bold mb-3"><i class="fas fa-shield-alt text-primary me-2"></i> System Highlights</h4>
-                        <div class="d-flex align-items-center mb-3 bg-white bg-opacity-10 p-3 rounded-3">
-                            <i class="fas fa-user-check fa-2x text-success me-3"></i>
-                            <div>
-                                <h6 class="mb-0 fw-bold">Role-Based Access Control</h6>
-                                <small class="text-white-50">Secure multi-tier permissions for Admins, Registrars & Faculty.</small>
+                
+                <div class="col-lg-6 d-none d-lg-block">
+                    <div class="hero-visual-container">
+                        <!-- Abstract UI Cards built with CSS -->
+                        <div class="floating-card card-1" style="--rot: -5deg;">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="bg-primary bg-opacity-10 text-primary p-2 rounded-3 me-3"><i class="fas fa-shield-alt"></i></div>
+                                <div><h6 class="mb-0 fw-bold">RBAC Security</h6><small class="text-muted">Active Protection</small></div>
+                            </div>
+                            <div class="w-100 bg-light rounded-pill mb-2" style="height: 6px;"></div>
+                            <div class="w-75 bg-light rounded-pill" style="height: 6px;"></div>
+                        </div>
+                        
+                        <div class="floating-card card-2" style="--rot: 3deg;">
+                            <h2 class="fw-bold mb-0">99.9%</h2>
+                            <p class="text-white-50 small mb-3">System Uptime</p>
+                            <div class="d-flex gap-1 align-items-end" style="height: 40px;">
+                                <div class="bg-primary rounded-top w-100 h-50"></div>
+                                <div class="bg-primary rounded-top w-100 h-75"></div>
+                                <div class="bg-primary rounded-top w-100 h-100"></div>
+                                <div class="bg-primary rounded-top w-100 h-50"></div>
+                                <div class="bg-primary rounded-top w-100 h-75"></div>
                             </div>
                         </div>
-                        <div class="d-flex align-items-center mb-3 bg-white bg-opacity-10 p-3 rounded-3">
-                            <i class="fas fa-qrcode fa-2x text-info me-3"></i>
-                            <div>
-                                <h6 class="mb-0 fw-bold">Anti-Forgery QR Verification</h6>
-                                <small class="text-white-50">Instant public validation for official graduation credentials.</small>
+
+                        <div class="floating-card card-3" style="--rot: 2deg;">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="mb-0 fw-bold text-dark">Certificate Gen</h6>
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill">Success</span>
                             </div>
-                        </div>
-                        <div class="d-flex align-items-center bg-white bg-opacity-10 p-3 rounded-3">
-                            <i class="fas fa-tachometer-alt fa-2x text-warning me-3"></i>
-                            <div>
-                                <h6 class="mb-0 fw-bold">Optimized Performance</h6>
-                                <small class="text-white-50">Minimal memory footprint engineered for high availability.</small>
+                            <div class="d-flex align-items-center bg-light rounded-3 p-2 border">
+                                <i class="fas fa-qrcode fa-2x text-dark opacity-50 me-3"></i>
+                                <div><small class="d-block fw-bold text-dark">SAZUG/2026/001</small><small class="text-muted" style="font-size:0.7rem">Anti-Forgery QR Attached</small></div>
                             </div>
                         </div>
                     </div>
@@ -271,148 +460,118 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
         </div>
     </section>
 
-    <!-- CAROUSEL / CAPABILITIES SHOWCASE -->
-    <section class="py-5 bg-white" id="features">
-        <div class="container py-5">
-            <div class="text-center mb-5">
-                <h6 class="text-primary text-uppercase fw-bold tracking-wider">Enterprise Architecture</h6>
-                <h2 class="fw-bold display-5">Engineered for Complete Student Lifecycles</h2>
-                <p class="text-muted col-lg-6 mx-auto">From secure document storage to complex academic reporting and audit trails.</p>
+    <section class="bento-section" id="platform">
+        <div class="container">
+            <div class="text-center mb-5 pb-3">
+                <h2 class="fw-bold text-dark" style="font-size: 2.5rem; letter-spacing: -1px;">Built for scale and simplicity.</h2>
+                <p class="text-muted fs-5">Everything you need to run an institution, out of the box.</p>
             </div>
-
-            <!-- BOOTSTRAP CAROUSEL -->
-            <div id="enterpriseCarousel" class="carousel slide mb-5 pb-4" data-bs-ride="carousel">
-                <div class="carousel-indicators">
-                    <button type="button" data-bs-target="#enterpriseCarousel" data-bs-slide-to="0" class="active bg-primary" aria-current="true"></button>
-                    <button type="button" data-bs-target="#enterpriseCarousel" data-bs-slide-to="1" class="bg-primary"></button>
-                    <button type="button" data-bs-target="#enterpriseCarousel" data-bs-slide-to="2" class="bg-primary"></button>
-                </div>
-                <div class="carousel-inner rounded-4 shadow-lg overflow-hidden">
-                    <div class="carousel-item active bg-dark text-white p-5">
-                        <div class="row align-items-center py-4 px-3">
-                            <div class="col-md-6">
-                                <span class="badge bg-primary mb-3">Module 01</span>
-                                <h2 class="fw-bold display-6 mb-3">Advanced Student Information System</h2>
-                                <p class="text-white-50 lead">Complete CRUD operations, demographic tracking, academic standing status updates, promotion, suspension, and alumni record archiving.</p>
-                            </div>
-                            <div class="col-md-6 text-center">
-                                <i class="fas fa-users-cog fa-5x text-primary opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="carousel-item bg-dark text-white p-5">
-                        <div class="row align-items-center py-4 px-3">
-                            <div class="col-md-6">
-                                <span class="badge bg-success mb-3">Module 02</span>
-                                <h2 class="fw-bold display-6 mb-3">Secure Document & Certificate Engine</h2>
-                                <p class="text-white-50 lead">Integrated mPDF generator coupled with Endroid QR codes for instant forgery-proof certificate generation and student document uploads.</p>
-                            </div>
-                            <div class="col-md-6 text-center">
-                                <i class="fas fa-certificate fa-5x text-success opacity-75"></i>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="carousel-item bg-dark text-white p-5">
-                        <div class="row align-items-center py-4 px-3">
-                            <div class="col-md-6">
-                                <span class="badge bg-warning text-dark mb-3">Module 03</span>
-                                <h2 class="fw-bold display-6 mb-3">Audit Trails & System Security</h2>
-                                <p class="text-white-50 lead">Immutable audit logs recording every login, record creation, password reset, and administrative action with IP address tracking.</p>
-                            </div>
-                            <div class="col-md-6 text-center">
-                                <i class="fas fa-fingerprint fa-5x text-warning opacity-75"></i>
-                            </div>
-                        </div>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="bento-card">
+                        <div class="icon-box"><i class="fas fa-users-cog"></i></div>
+                        <h4 class="fw-bold mb-3">Unified Records</h4>
+                        <p class="text-muted">A single source of truth for demographics, enrollments, and academic standings across all faculties and departments.</p>
                     </div>
                 </div>
-                <button class="carousel-control-prev" type="button" data-bs-target="#enterpriseCarousel" data-bs-slide="prev">
-                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                </button>
-                <button class="carousel-control-next" type="button" data-bs-target="#enterpriseCarousel" data-bs-slide="next">
-                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                </button>
-            </div>
-
-            <!-- QUICK VERIFICATION WIDGET -->
-            <div class="row justify-content-center" id="verify-section">
-                <div class="col-lg-8">
-                    <div class="card feature-card p-5 border border-primary border-opacity-25 shadow-lg">
-                        <div class="text-center mb-4">
-                            <div class="feature-icon mx-auto"><i class="fas fa-search"></i></div>
-                            <h3 class="fw-bold">Instant Certificate Verification</h3>
-                            <p class="text-muted">Enter any official SAZUG certificate identification number to verify authenticity.</p>
-                        </div>
-                        <form method="GET" action="index.php" class="row g-3">
-                            <div class="col-md-9">
-                                <input type="text" name="verify" class="form-control form-control-lg rounded-pill px-4" placeholder="e.g. SAZUG/2026/000001" required>
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-glow btn-lg text-white w-100 rounded-pill fw-semibold">Verify Now</button>
-                            </div>
-                        </form>
+                <div class="col-md-4">
+                    <div class="bento-card">
+                        <div class="icon-box dark"><i class="fas fa-fingerprint"></i></div>
+                        <h4 class="fw-bold mb-3">Granular Access</h4>
+                        <p class="text-muted">Strict Role-Based Access Control (RBAC) ensures Registrars, Lecturers, and Students only see what they are authorized to see.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="bento-card">
+                        <div class="icon-box purple"><i class="fas fa-certificate"></i></div>
+                        <h4 class="fw-bold mb-3">Digital Credentials</h4>
+                        <p class="text-muted">Automated PDF certificate generation with embedded cryptographic QR codes to permanently eliminate document forgery.</p>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+
+    <section class="verify-section" id="verify">
+        <div class="container position-relative z-1 text-center">
+            <i class="fas fa-shield-check text-primary mb-4" style="font-size: 3rem; opacity: 0.8;"></i>
+            <h2 class="fw-bold mb-3" style="font-size: 2.5rem;">Global Verification Gateway</h2>
+            <p class="text-white-50 mb-5 fs-5 max-w-2xl mx-auto">Employers and institutions can instantly cryptographically verify the authenticity of any SAZUG graduation document.</p>
+            
+            <form method="GET" action="index.php">
+                <div class="search-bar-wrapper">
+                    <input type="text" name="verify" class="search-input" placeholder="Enter Certificate ID (e.g., SAZUG/2026/000001)" required autocomplete="off">
+                    <button type="submit" class="btn-search">Authenticate</button>
+                </div>
+            </form>
+            <p class="mt-4 small text-white-50"><i class="fas fa-lock me-1"></i> Connections are encrypted via 256-bit TLS.</p>
+        </div>
+    </section>
+
 <?php endif; ?>
 
-<!-- FOOTER -->
-<footer class="text-center text-md-start">
+<footer class="footer">
     <div class="container">
-        <div class="row g-4 mb-5">
-            <div class="col-md-5">
-                <h5 class="text-white fw-bold mb-3"><i class="fas fa-graduation-cap text-primary me-2"></i> SAZUG SRMS</h5>
-                <p class="small text-muted">A fully optimized, production-grade Student Record Management System built for superior institutional administration and high availability.</p>
+        <div class="row align-items-center">
+            <div class="col-md-6 text-center text-md-start mb-3 mb-md-0">
+                <div class="d-flex align-items-center justify-content-center justify-content-md-start gap-2 mb-2">
+                    <i class="fas fa-layer-group text-primary"></i>
+                    <span class="fw-bold text-dark tracking-tight">SAZUG SRMS</span>
+                </div>
+                <p class="text-muted small mb-0">&copy; <?= date('Y') ?> SAZUG Institution. Enterprise Production Engine.</p>
             </div>
-            <div class="col-md-3">
-                <h6 class="text-white fw-bold mb-3">Quick Links</h6>
-                <ul class="list-unstyled small d-flex flex-column gap-2">
-                    <li><a href="#" class="text-decoration-none text-muted" data-bs-toggle="modal" data-bs-target="#loginModal">Staff Portal</a></li>
-                    <li><a href="#" class="text-decoration-none text-muted" data-bs-toggle="modal" data-bs-target="#loginModal">Student Portal</a></li>
-                    <li><a href="#verify-section" class="text-decoration-none text-muted">Verify Certificate</a></li>
-                </ul>
+            <div class="col-md-6 text-center text-md-end">
+                <a href="#" class="text-muted text-decoration-none small mx-2">Privacy Policy</a>
+                <a href="#" class="text-muted text-decoration-none small mx-2">Terms of Service</a>
+                <a href="#" class="text-muted text-decoration-none small mx-2">System Status</a>
             </div>
-            <div class="col-md-4">
-                <h6 class="text-white fw-bold mb-3">Security & Compliance</h6>
-                <p class="small text-muted mb-0">Secured with PDO Prepared Statements, CSRF Token validation, Argon2/Bcrypt hashing, and rigorous RBAC protocols.</p>
-            </div>
-        </div>
-        <hr class="border-secondary opacity-25">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-center small text-muted pt-3">
-            <p class="mb-0">&copy; <?= date('Y') ?> SAZUG Institution. All rights reserved.</p>
-            <p class="mb-0">Production Environment v1.0.0</p>
         </div>
     </div>
 </footer>
 
-<!-- LOGIN MODAL -->
-<div class="modal fade" id="loginModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content p-4">
-            <div class="modal-header border-0 pb-0">
-                <h4 class="modal-title fw-bold">Sign In to Portal</h4>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+<!-- PREMIUM LOGIN MODAL -->
+<div class="modal fade custom-modal" id="loginModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content overflow-hidden row flex-row m-0">
+            <!-- Left Info Pane -->
+            <div class="col-md-5 modal-left-pane d-none d-md-flex">
+                <div class="mb-5">
+                    <i class="fas fa-layer-group fa-2x text-primary mb-3"></i>
+                    <h3 class="fw-bold">Welcome back.</h3>
+                    <p class="text-white-50 mt-2">Sign in to your workspace to manage records, review analytics, and issue credentials.</p>
+                </div>
+                <div class="mt-auto">
+                    <div class="d-flex align-items-center text-white-50 small bg-white bg-opacity-10 p-3 rounded-3">
+                        <i class="fas fa-info-circle me-3 fa-lg"></i>
+                        <span>Students: Use your Admission Number to access your portal.</span>
+                    </div>
+                </div>
             </div>
-            <div class="modal-body pt-3">
-                <p class="text-muted small mb-4">Enter your institutional credentials to access your role dashboard.</p>
+            <!-- Right Login Pane -->
+            <div class="col-md-7 p-5 bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-5">
+                    <h4 class="fw-bold text-dark mb-0">Sign In</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
                 <form id="loginForm">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold small">Username or Admission No.</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-user text-muted"></i></span>
-                            <input type="text" class="form-control border-start-0 bg-light py-2" id="username" placeholder="e.g. superadmin" required>
-                        </div>
+                    <div class="form-floating mb-4">
+                        <input type="text" class="form-control" id="username" placeholder="Username" required>
+                        <label for="username" class="text-muted">Username or Admission No.</label>
                     </div>
-                    <div class="mb-4">
-                        <label class="form-label fw-semibold small">Password</label>
-                        <div class="input-group">
-                            <span class="input-group-text bg-light border-end-0"><i class="fas fa-lock text-muted"></i></span>
-                            <input type="password" class="form-control border-start-0 bg-light py-2" id="password" placeholder="••••••••" required>
-                        </div>
+                    <div class="form-floating mb-4">
+                        <input type="password" class="form-control" id="password" placeholder="Password" required>
+                        <label for="password" class="text-muted">Password</label>
                     </div>
-                    <button type="submit" class="btn btn-glow text-white w-100 py-3 rounded-pill fw-bold" id="loginBtn">
-                        Authenticate Securely <i class="fas fa-arrow-right ms-2"></i>
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="remember">
+                            <label class="form-check-label text-muted small" for="remember">Remember this device</label>
+                        </div>
+                        <a href="#" class="text-primary text-decoration-none small fw-semibold">Forgot Password?</a>
+                    </div>
+                    <button type="submit" class="btn btn-premium w-100 py-3 d-flex justify-content-center align-items-center gap-2" id="loginBtn">
+                        Authenticate <i class="fas fa-arrow-right"></i>
                     </button>
                 </form>
             </div>
@@ -431,7 +590,7 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
             const user = document.getElementById('username').value;
             const pass = document.getElementById('password').value;
             
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Authenticating...';
             btn.disabled = true;
 
             try {
@@ -443,7 +602,10 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
                 const data = await response.json();
 
                 if (data.status) {
-                    Swal.fire({ icon: 'success', title: 'Welcome Back', text: 'Authentication successful!', timer: 1200, showConfirmButton: false }).then(() => {
+                    btn.innerHTML = '<i class="fas fa-check me-2"></i> Success';
+                    btn.classList.replace('btn-premium', 'btn-success');
+                    
+                    setTimeout(() => {
                         if (['Super Administrator', 'Administrator', 'Registrar', 'Department Officer'].includes(data.role)) {
                             window.location.href = 'admin_spa.php';
                         } else if (data.role === 'Lecturer') {
@@ -451,19 +613,37 @@ if (isset($_GET['verify']) && !empty($_GET['verify'])) {
                         } else {
                             window.location.href = 'student_spa.php';
                         }
-                    });
+                    }, 600);
                 } else {
-                    Swal.fire({ icon: 'error', title: 'Access Denied', text: data.message, confirmButtonColor: '#2563eb' });
-                    btn.innerHTML = 'Authenticate Securely <i class="fas fa-arrow-right ms-2"></i>';
+                    Swal.fire({ 
+                        icon: 'error', 
+                        title: 'Authentication Failed', 
+                        text: data.message,
+                        confirmButtonColor: '#0B1121',
+                        customClass: { popup: 'rounded-4' }
+                    });
+                    btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right"></i>';
                     btn.disabled = false;
                 }
             } catch (error) {
-                Swal.fire({ icon: 'error', title: 'Network Error', text: 'Failed to communicate with server.' });
-                btn.innerHTML = 'Authenticate Securely <i class="fas fa-arrow-right ms-2"></i>';
+                Swal.fire({ icon: 'error', title: 'Network Error', text: 'Failed to securely connect to authentication servers.' });
+                btn.innerHTML = 'Authenticate <i class="fas fa-arrow-right"></i>';
                 btn.disabled = false;
             }
         });
     }
+
+    // Add scroll effect to navbar
+    window.addEventListener('scroll', () => {
+        const nav = document.querySelector('.navbar-glass');
+        if (window.scrollY > 20) {
+            nav.style.boxShadow = '0 10px 30px -10px rgba(0,0,0,0.1)';
+            nav.style.background = 'rgba(255, 255, 255, 0.95)';
+        } else {
+            nav.style.boxShadow = 'none';
+            nav.style.background = 'rgba(255, 255, 255, 0.85)';
+        }
+    });
 </script>
 </body>
 </html>
