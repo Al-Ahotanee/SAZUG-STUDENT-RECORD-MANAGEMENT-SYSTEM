@@ -15,6 +15,7 @@ if (file_exists($lockFile)) {
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['install'])) {
     
     $host = getenv('DB_HOST');
+    $port = getenv('DB_PORT') ?: '1247';
     $db   = getenv('DB_NAME');
     $user = getenv('DB_USER');
     $pass = getenv('DB_PASS');
@@ -26,7 +27,7 @@ if (file_exists($lockFile)) {
         try {
             // Aiven requires SSL. PDO will automatically negotiate SSL if the server demands it.
             // We ensure MYSQL_ATTR_MULTI_STATEMENTS is enabled to run the whole file at once.
-            $dsn = "mysql:host=$host;dbname=$db;charset=utf8mb4";
+            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
@@ -106,6 +107,7 @@ if (file_exists($lockFile)) {
             <div class="text-start mt-4 bg-light p-3 rounded small border">
                 <strong>Current Environment Check:</strong><br>
                 Host: <code><?= getenv('DB_HOST') ? 'Set' : 'Missing' ?></code><br>
+                Port: <code><?= getenv('DB_PORT') ? 'Set (' . getenv('DB_PORT') . ')' : 'Default (1247)' ?></code><br>
                 Database Name: <code><?= getenv('DB_NAME') ? 'Set' : 'Missing' ?></code><br>
                 Username: <code><?= getenv('DB_USER') ? 'Set' : 'Missing' ?></code><br>
                 Password: <code><?= getenv('DB_PASS') ? 'Set (Hidden)' : 'Missing' ?></code>
