@@ -45,6 +45,13 @@ if (file_exists($lockFile)) {
             // Execute the entire schema
             $pdo->exec($sql);
             
+            // Dynamically generate a fresh, native password hash for Admin@123 matching this PHP runtime version
+            $adminPasswordHash = password_hash('Admin@123', PASSWORD_BCRYPT);
+            
+            // Ensure superadmin account exists and has the correct fresh hash
+            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role, status) VALUES ('superadmin', ?, 'Super Administrator', 'Active') ON DUPLICATE KEY UPDATE password_hash = ?");
+            $stmt->execute([$adminPasswordHash, $adminPasswordHash]);
+            
             // Create a lock file to prevent this script from running again
             file_put_contents($lockFile, "Installed successfully on " . date('Y-m-d H:i:s'));
             
