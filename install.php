@@ -12,22 +12,21 @@ $status = '';
 if (file_exists($lockFile)) {
     $status = 'error';
     $message = "Installation has already been completed. For security reasons, please delete this <b>install.php</b> file from your repository.";
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['install'])) {
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
     
-    $host = getenv('DB_HOST');
-    $port = getenv('DB_PORT') ?: '1247';
-    $db   = getenv('DB_NAME');
-    $user = getenv('DB_USER');
-    $pass = getenv('DB_PASS');
+    $host = trim(getenv('DB_HOST'));
+    $port = trim(getenv('DB_PORT') ?: '12417'); // Aiven custom port
+    $db   = trim(getenv('DB_NAME') ?: 'defaultdb'); // Aiven default db name
+    $user = trim(getenv('DB_USER') ?: 'avnadmin');
+    $pass = trim(getenv('DB_PASS'));
 
     if (!$host || !$db || !$user) {
         $status = 'error';
         $message = "Database credentials are missing. Please ensure DB_HOST, DB_NAME, DB_USER, and DB_PASS are set in Render's Environment Variables.";
     } else {
         try {
-            // Aiven requires SSL. PDO will automatically negotiate SSL if the server demands it.
-            // We ensure MYSQL_ATTR_MULTI_STATEMENTS is enabled to run the whole file at once.
-            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4";
+            // Aiven requires SSL mode and multi-statements to run the full schema script
+            $dsn = "mysql:host=$host;port=$port;dbname=$db;charset=utf8mb4;sslmode=require";
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::MYSQL_ATTR_MULTI_STATEMENTS => true,
@@ -50,11 +49,11 @@ if (file_exists($lockFile)) {
             file_put_contents($lockFile, "Installed successfully on " . date('Y-m-d H:i:s'));
             
             $status = 'success';
-            $message = "Database schema imported successfully! The Super Administrator account has been created.";
+            $message = "Database schema imported successfully into Aiven! The Super Administrator account has been created.";
             
         } catch (PDOException $e) {
             $status = 'error';
-            $message = "Database Connection Error: " . htmlspecialchars($e->getMessage());
+            $message = "Aiven Database Connection Error: " . htmlspecialchars($e->getMessage()) . "<br><small>Double-check that your DB_PORT matches your 5-digit Aiven port (12417) and your IP allowlist is set to 0.0.0.0/0.</small>";
         } catch (Exception $e) {
             $status = 'error';
             $message = "Error: " . $e->getMessage();
@@ -67,7 +66,7 @@ if (file_exists($lockFile)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAZUG SRMS - Installer</title>
+    <title>SAZUG SRMS - Aiven Installer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -80,8 +79,8 @@ if (file_exists($lockFile)) {
 <div class="container">
     <div class="install-card mx-auto text-center">
         <i class="fas fa-database fa-4x text-primary mb-4"></i>
-        <h2 class="fw-bold mb-3">Database Setup</h2>
-        <p class="text-muted mb-4">This tool will connect to your Aiven MySQL database using Render's Environment Variables and execute your schema to create all tables.</p>
+        <h2 class="fw-bold mb-3">Aiven Database Setup</h2>
+        <p class="text-muted mb-4">This tool will securely connect to your Aiven MySQL database using port 12417 and execute your schema.</p>
         
         <?php if ($status === 'success'): ?>
             <div class="alert alert-success">
@@ -101,16 +100,16 @@ if (file_exists($lockFile)) {
         <?php if ($status !== 'success' && !file_exists($lockFile)): ?>
             <form method="POST" action="">
                 <button type="submit" name="install" value="1" class="btn btn-primary w-100 py-2 fs-5">
-                    <i class="fas fa-play me-2"></i> Run Installer
+                    <i class="fas fa-play me-2"></i> Run Aiven Installer
                 </button>
             </form>
             <div class="text-start mt-4 bg-light p-3 rounded small border">
                 <strong>Current Environment Check:</strong><br>
-                Host: <code><?= getenv('DB_HOST') ? 'Set' : 'Missing' ?></code><br>
-                Port: <code><?= getenv('DB_PORT') ? 'Set (' . getenv('DB_PORT') . ')' : 'Default (1247)' ?></code><br>
-                Database Name: <code><?= getenv('DB_NAME') ? 'Set' : 'Missing' ?></code><br>
-                Username: <code><?= getenv('DB_USER') ? 'Set' : 'Missing' ?></code><br>
-                Password: <code><?= getenv('DB_PASS') ? 'Set (Hidden)' : 'Missing' ?></code>
+                Host: <code><?= getenv('DB_HOST') ? htmlspecialchars(getenv('DB_HOST')) : '<span class="text-danger">Missing</span>' ?></code><br>
+                Port: <code><?= getenv('DB_PORT') ? htmlspecialchars(getenv('DB_PORT')) : '12417 (Configured)' ?></code><br>
+                Database Name: <code><?= getenv('DB_NAME') ? htmlspecialchars(getenv('DB_NAME')) : 'defaultdb' ?></code><br>
+                Username: <code><?= getenv('DB_USER') ? htmlspecialchars(getenv('DB_USER')) : 'avnadmin' ?></code><br>
+                Password: <code><?= getenv('DB_PASS') ? 'Set (Hidden)' : '<span class="text-danger">Missing</span>' ?></code>
             </div>
         <?php endif; ?>
     </div>
