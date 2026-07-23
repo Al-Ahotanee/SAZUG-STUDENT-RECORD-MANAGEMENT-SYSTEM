@@ -1,18 +1,14 @@
 <?php
 /**
- * SAZUG SRMS - One-Click Database Installer
- * Designed to execute schema.sql directly from the Render environment.
+ * SAZUG SRMS - One-Click Database Installer & Wiper
+ * Automatically drops existing tables, imports schema.sql, and seeds superadmin.
  */
 
 $lockFile = __DIR__ . '/install.lock';
 $message = '';
 $status = '';
 
-// SECURITY: Prevent re-running if already installed
-if (file_exists($lockFile)) {
-    $status = 'error';
-    $message = "Installation has already been completed. For security reasons, please delete this <b>install.php</b> file from your repository.";
-} elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['install'] ?? false) {
     
     $host = trim(getenv('DB_HOST'));
     $port = trim(getenv('DB_PORT') ?: '12417'); // Aiven custom port
@@ -34,7 +30,16 @@ if (file_exists($lockFile)) {
             
             $pdo = new PDO($dsn, $user, $pass, $options);
             
-            // Read the schema file
+            // 1. WIPE EXISTING TABLES (Drops all tables cleanly to prevent duplicate entry errors)
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 0;");
+            $tablesStmt = $pdo->query("SHOW TABLES");
+            $tables = $tablesStmt->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($tables as $table) {
+                $pdo->exec("DROP TABLE IF EXISTS `$table`");
+            }
+            $pdo->exec("SET FOREIGN_KEY_CHECKS = 1;");
+
+            // 2. Read the schema file
             $schemaFile = __DIR__ . '/schema.sql';
             if (!file_exists($schemaFile)) {
                 throw new Exception("<b>schema.sql</b> file not found in the root directory.");
@@ -42,21 +47,21 @@ if (file_exists($lockFile)) {
             
             $sql = file_get_contents($schemaFile);
             
-            // Execute the entire schema
+            // 3. Execute the entire schema
             $pdo->exec($sql);
             
-            // Dynamically generate a fresh, native password hash for Admin@123 matching this PHP runtime version
+            // 4. Dynamically generate a fresh, native password hash for Admin@123 matching this PHP runtime version
             $adminPasswordHash = password_hash('Admin@123', PASSWORD_BCRYPT);
             
             // Ensure superadmin account exists and has the correct fresh hash
             $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, role, status) VALUES ('superadmin', ?, 'Super Administrator', 'Active') ON DUPLICATE KEY UPDATE password_hash = ?");
             $stmt->execute([$adminPasswordHash, $adminPasswordHash]);
             
-            // Create a lock file to prevent this script from running again
-            file_put_contents($lockFile, "Installed successfully on " . date('Y-m-d H:i:s'));
+            // Create a lock file
+            file_put_contents($lockFile, "Installed & wiped successfully on " . date('Y-m-d H:i:s'));
             
             $status = 'success';
-            $message = "Database schema imported successfully into Aiven! The Super Administrator account has been created.";
+            $message = "Database wiped, schema imported successfully into Aiven, and Super Administrator account created!";
             
         } catch (PDOException $e) {
             $status = 'error';
@@ -86,8 +91,8 @@ if (file_exists($lockFile)) {
 <div class="container">
     <div class="install-card mx-auto text-center">
         <i class="fas fa-database fa-4x text-primary mb-4"></i>
-        <h2 class="fw-bold mb-3">Aiven Database Setup</h2>
-        <p class="text-muted mb-4">This tool will securely connect to your Aiven MySQL database using port 12417 and execute your schema.</p>
+        <h2 class="fw-bold mb-3">Aiven Database Setup & Wipe</h2>
+        <p class="text-muted mb-4">This tool will wipe all existing tables, securely connect to your Aiven MySQL database using port 12417, and execute your schema fresh.</p>
         
         <?php if ($status === 'success'): ?>
             <div class="alert alert-success">
@@ -99,15 +104,13 @@ if (file_exists($lockFile)) {
             <div class="alert alert-danger text-start">
                 <i class="fas fa-times-circle me-2"></i> <?= $message ?>
             </div>
-            <?php if (!file_exists($lockFile)): ?>
-                <a href="install.php" class="btn btn-outline-primary mt-3">Try Again</a>
-            <?php endif; ?>
+            <a href="install.php" class="btn btn-outline-primary mt-3">Try Again</a>
         <?php endif; ?>
 
-        <?php if ($status !== 'success' && !file_exists($lockFile)): ?>
+        <?php if ($status !== 'success'): ?>
             <form method="POST" action="">
                 <button type="submit" name="install" value="1" class="btn btn-primary w-100 py-2 fs-5">
-                    <i class="fas fa-play me-2"></i> Run Aiven Installer
+                    <i class="fas fa-sync-alt me-2"></i> Wipe & Run Aiven Installer
                 </button>
             </form>
             <div class="text-start mt-4 bg-light p-3 rounded small border">
